@@ -1,0 +1,305 @@
+// Prisma schema for ONE institution instance.
+// Since each institution gets its own database, the schema is single-tenant
+// — no tenant_id columns, no RLS.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  Identity & Auth
+// ──────────────────────────────────────────────────────────────────────
+
+enum Role {
+  INSTANCE_ADMIN
+  MANAGER
+  TEACHER
+  STUDENT
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  role          Role     @default(STUDENT)
+  avatarUrl     String?
+  phone         String?
+  isActive      Boolean  @default(true)
+  emailVerified Boolean  @default(false)
+  lastLoginAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions       Session[]
+  teacherProfile Teacher?
+  studentProfile Student?
+
+  @@index([role])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken String   @unique
+  userAgent    String?
+  ip           String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  Institution (singleton per instance)
+// ──────────────────────────────────────────────────────────────────────
+
+enum InstitutionCategory {
+  UNIVERSITY
+  SCHOOL
+  TRAINING_CENTER
+  COLLEGE
+  HIGH_SCHOOL
+  OTHER
+}
+
+model Institution {
+  id               String              @id @default(cuid())
+  name             String
+  legalName        String?
+  slug             String              @unique
+  category         InstitutionCategory @default(SCHOOL)
+  description      String?
+  foundedYear      Int?
+  logoUrl          String?
+  coverUrl         String?
+  websiteUrl       String?
+  isPublished      Boolean             @default(false)
+  settings         Json                @default("{}")
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  addresses        InstitutionAddress[]
+  contacts         InstitutionContact[]
+  media            InstitutionMedia[]
+  documents        InstitutionDocument[]
+  enabledModules   InstitutionModule[]
+}
+
+model InstitutionAddress {
+  id            String   @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  label         String?
+  line1         String
+  line2         String?
+  city          String
+  region        String?
+  postalCode    String?
+  country       String
+  latitude      Float?
+  longitude     Float?
+  isPrimary     Boolean  @default(false)
+}
+
+model InstitutionContact {
+  id            String   @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  type          String   // phone, email, website, facebook, etc.
+  value         String
+  label         String?
+  isPrimary     Boolean  @default(false)
+}
+
+model InstitutionMedia {
+  id            String   @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  kind          String   // logo, cover, gallery
+  url           String
+  caption       String?
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+}
+
+model InstitutionDocument {
+  id            String   @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  title         String
+  url           String
+  mimeType      String?
+  sizeBytes     Int?
+  createdAt     DateTime @default(now())
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  Feature Modules
+// ──────────────────────────────────────────────────────────────────────
+
+model InstitutionModule {
+  id            String   @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  moduleKey     String   // courses, students, teachers, grades, schedule, library, messaging, reports
+  enabled       Boolean  @default(true)
+  config        Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([institutionId, moduleKey])
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  Academic
+// ──────────────────────────────────────────────────────────────────────
+
+model Program {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  description String?
+  level       String?  // bachelor, master, certificate, etc.
+  durationMonths Int?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  courses     Course[]
+  students    Student[]
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  programId   String?
+  program     Program? @relation(fields: [programId], references: [id], onDelete: SetNull)
+  code        String   @unique
+  title       String
+  description String?
+  credits     Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  enrollments Enrollment[]
+}
+
+model Teacher {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  staffNumber String?  @unique
+  title       String?
+  bio         String?
+  specialties String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  enrollments Enrollment[]
+}
+
+model Student {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentNumber   String   @unique
+  programId       String?
+  program         Program? @relation(fields: [programId], references: [id], onDelete: SetNull)
+  enrollmentYear  Int?
+  status          String   @default("active") // active, graduated, suspended, dropped
+  birthDate       DateTime?
+  guardianName    String?
+  guardianPhone   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  enrollments     Enrollment[]
+  grades          Grade[]
+}
+
+model Enrollment {
+  id         String   @id @default(cuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseId   String
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  teacherId  String?
+  teacher    Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  academicYear String  // e.g. "2025-2026"
+  semester   String?  // e.g. "S1", "S2"
+  status     String   @default("enrolled")
+  createdAt  DateTime @default(now())
+
+  grades     Grade[]
+
+  @@unique([studentId, courseId, academicYear])
+}
+
+model Grade {
+  id           String   @id @default(cuid())
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  assessment   String   // midterm, final, quiz1, etc.
+  score        Float
+  maxScore     Float    @default(100)
+  comment      String?
+  gradedAt     DateTime @default(now())
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  Scheduling
+// ──────────────────────────────────────────────────────────────────────
+
+model Class {
+  id         String   @id @default(cuid())
+  name       String
+  code       String   @unique
+  academicYear String
+  createdAt  DateTime @default(now())
+
+  schedule   ScheduleEntry[]
+}
+
+model ScheduleEntry {
+  id        String   @id @default(cuid())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  courseId  String?
+  teacherId String?
+  dayOfWeek Int      // 0..6 (Sun..Sat)
+  startTime String   // "08:30"
+  endTime   String   // "10:00"
+  room      String?
+  notes     String?
+
+  @@index([classId, dayOfWeek])
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  Audit
+// ──────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  payload   Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}

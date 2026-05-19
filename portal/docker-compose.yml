@@ -1,0 +1,27 @@
+services:
+  portal-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: akdmi_portal
+      POSTGRES_USER: portal
+      POSTGRES_PASSWORD: ${PORTAL_DB_PASSWORD:-changeme}
+    volumes:
+      - portal_db:/var/lib/postgresql/data
+    ports:
+      - "${PORTAL_DB_PORT:-5099}:5432"
+
+  portal-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on: [portal-db]
+    environment:
+      DATABASE_URL: postgresql://portal:${PORTAL_DB_PASSWORD:-changeme}@portal-db:5432/akdmi_portal
+      JWT_SECRET: ${JWT_SECRET}
+      NODE_ENV: production
+    ports:
+      - "${PORTAL_PORT:-3099}:3000"
+
+volumes:
+  portal_db:

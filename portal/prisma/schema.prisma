@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PortalRole {
+  PLATFORM_ADMIN
+  INSTITUTION_OWNER
+}
+
+model PortalUser {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String
+  role          PortalRole @default(INSTITUTION_OWNER)
+  createdAt     DateTime  @default(now())
+  ownedInstances Instance[]
+}
+
+enum InstanceStatus {
+  PROVISIONING
+  RUNNING
+  STOPPED
+  ERROR
+  ARCHIVED
+}
+
+model Instance {
+  id            String        @id @default(cuid())
+  slug          String        @unique
+  name          String
+  category      String        @default("SCHOOL")
+  description   String?
+  city          String?
+  country       String?
+  logoUrl       String?
+  publicUrl     String?       // e.g. http://localhost:3100
+  apiUrl        String?
+  status        InstanceStatus @default(PROVISIONING)
+  isPublished   Boolean       @default(false)
+  ownerId       String?
+  owner         PortalUser?   @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  lastHealthAt  DateTime?
+
+  @@index([isPublished, status])
+  @@index([country, city])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  target    String?
+  payload   Json?
+  createdAt DateTime @default(now())
+}

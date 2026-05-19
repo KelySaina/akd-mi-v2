@@ -1,0 +1,5 @@
+# Per-instance overrides.
+# Customize this file inside instances/<slug>/ to add extra services,
+# change resource limits, or mount custom configs without modifying
+# the shared base template.
+services: {}

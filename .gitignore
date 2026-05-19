@@ -1,0 +1,14 @@
+instances/*/
+!instances/.gitkeep
+backups/
+node_modules/
+.next/
+dist/
+build/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+.akd-mi-*.tmp
+.akd-mi-*.pid

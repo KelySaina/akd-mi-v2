@@ -1,0 +1,32 @@
+# Nginx reverse proxy template for AKD-MI instance __SLUG__
+# (Optional — use only if you want a single domain serving both web and API)
+
+upstream akdmi_web { server web:3000; }
+upstream akdmi_api { server api:4000; }
+
+server {
+    listen 80;
+    server_name __SLUG__.local;
+
+    client_max_body_size 50M;
+
+    location /api/ {
+        proxy_pass http://akdmi_api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://akdmi_web;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

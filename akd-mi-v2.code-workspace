@@ -1,0 +1,16 @@
+{
+    "folders": [
+        { "path": "." },
+        { "path": "backend" },
+        { "path": "frontend" },
+        { "path": "portal" }
+    ],
+    "settings": {
+        "files.exclude": {
+            "instances/*/data": true,
+            "**/node_modules": true,
+            "**/.next": true,
+            "**/dist": true
+        }
+    }
+}
