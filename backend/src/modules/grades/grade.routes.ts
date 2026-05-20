@@ -6,7 +6,8 @@ import { handleError } from '../../common/errors.js';
 
 const GradeBody = z.object({
     enrollmentId: z.string(),
-    assessment: z.string().min(1),
+    assessmentId: z.string().optional().nullable(),
+    assessment: z.string().min(1).optional(),
     score: z.number(),
     maxScore: z.number().default(100),
     comment: z.string().optional().nullable(),
@@ -16,21 +17,25 @@ export async function gradeRoutes(app: FastifyInstance) {
     app.addHook('preHandler', authenticate);
 
     app.get('/', async (req) => {
-        const { studentId, enrollmentId } = req.query as Record<string, string | undefined>;
+        const { studentId, enrollmentId, courseId, assessmentId } = req.query as Record<string, string | undefined>;
         const role = req.user!.role;
-        const where: Record<string, unknown> = { studentId, enrollmentId };
+        const where: Record<string, unknown> = {};
+        if (studentId) where.studentId = studentId;
+        if (enrollmentId) where.enrollmentId = enrollmentId;
+        if (assessmentId) where.assessmentId = assessmentId;
+        if (courseId) where.enrollment = { ...(where.enrollment as object ?? {}), courseId };
         if (role === 'STUDENT') {
             const s = await prisma.student.findUnique({ where: { userId: req.user!.sub }, select: { id: true } });
             where.studentId = s?.id ?? '__none__';
         } else if (role === 'TEACHER') {
             const t = await prisma.teacher.findUnique({ where: { userId: req.user!.sub }, select: { id: true } });
-            where.enrollment = { teacherId: t?.id ?? '__none__' };
+            where.enrollment = { ...(where.enrollment as object ?? {}), teacherId: t?.id ?? '__none__' };
         }
         return prisma.grade.findMany({
             where,
             include: { enrollment: { include: { course: true } } },
             orderBy: { gradedAt: 'desc' },
-            take: 500,
+            take: 1000,
         });
     });
 
@@ -48,8 +53,25 @@ export async function gradeRoutes(app: FastifyInstance) {
             if (!(await ensureTeacherOwnsEnrollment(req, reply, body.enrollmentId))) return;
             const enrollment = await prisma.enrollment.findUnique({ where: { id: body.enrollmentId } });
             if (!enrollment) return reply.code(404).send({ error: 'EnrollmentNotFound' });
+            let assessment = body.assessment;
+            let maxScore = body.maxScore;
+            if (body.assessmentId) {
+                const a = await prisma.assessment.findUnique({ where: { id: body.assessmentId }, select: { name: true, maxScore: true, courseId: true } });
+                if (!a || a.courseId !== enrollment.courseId) return reply.code(400).send({ error: 'AssessmentInvalid' });
+                assessment = a.name;
+                maxScore = a.maxScore;
+            }
+            if (!assessment) return reply.code(400).send({ error: 'assessment or assessmentId required' });
             const grade = await prisma.grade.create({
-                data: { ...body, studentId: enrollment.studentId },
+                data: {
+                    enrollmentId: body.enrollmentId,
+                    assessmentId: body.assessmentId ?? null,
+                    assessment,
+                    score: body.score,
+                    maxScore,
+                    comment: body.comment ?? null,
+                    studentId: enrollment.studentId,
+                },
             });
             return reply.code(201).send(grade);
         } catch (err) { return handleError(reply, err); }

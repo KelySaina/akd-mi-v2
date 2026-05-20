@@ -20,6 +20,7 @@ import { studentRoutes } from './modules/students/student.routes.js';
 import { teacherRoutes } from './modules/teachers/teacher.routes.js';
 import { enrollmentRoutes } from './modules/enrollments/enrollment.routes.js';
 import { gradeRoutes } from './modules/grades/grade.routes.js';
+import { assessmentRoutes } from './modules/assessments/assessment.routes.js';
 import { storageRoutes } from './modules/storage/storage.routes.js';
 import { passwordResetRoutes, forgotPasswordRoutes } from './modules/password-resets/password-reset.routes.js';
 import { notificationRoutes } from './modules/notifications/notification.routes.js';
@@ -77,6 +78,7 @@ export async function buildApp() {
     await app.register(teacherRoutes,     { prefix: '/api/v1/teachers' });
     await app.register(enrollmentRoutes,  { prefix: '/api/v1/enrollments' });
     await app.register(gradeRoutes,       { prefix: '/api/v1/grades' });
+    await app.register(assessmentRoutes,  { prefix: '/api/v1/assessments' });
     await app.register(storageRoutes,     { prefix: '/api/v1/storage' });
     await app.register(passwordResetRoutes, { prefix: '/api/v1/password-resets' });
     await app.register(notificationRoutes, { prefix: '/api/v1/notifications' });
