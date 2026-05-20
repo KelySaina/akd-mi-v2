@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Topbar, PrimaryButton } from '@/components/Topbar';
 import { DataTable, Badge } from '@/components/DataTable';
-import { Modal, TextInput, SelectInput, Button } from '@/components/ui';
+import { Modal, TextInput, SelectInput, Button, FormSection, FormGrid, FormFull, TextAreaInput } from '@/components/ui';
 import { BookOpen, Paperclip, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { CourseMediaManager } from '@/components/CourseMediaManager';
@@ -181,36 +181,92 @@ export default function CoursesPage() {
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title={editing ? `Edit course · ${editing.code}` : 'Create course'}
+        title={editing ? `Edit course · ${editing.code}` : 'Create a new course'}
+        description={editing
+          ? 'Update the course details. Changes apply immediately to all current and future enrollments.'
+          : 'A course groups students around a syllabus and a teacher. You can add attachments and grade columns later.'}
+        icon={<BookOpen className="size-5" />}
+        intent="primary"
+        size="xl"
         footer={
           <>
             <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
             <Button onClick={() => (document.getElementById('course-form') as HTMLFormElement)?.requestSubmit()}>
-              {editing ? 'Save' : 'Create'}
+              <BookOpen className="size-4" /> {editing ? 'Save changes' : 'Create course'}
             </Button>
           </>
         }
       >
-        <form id="course-form" onSubmit={submit} className="space-y-4">
-          <TextInput label="Code" value={form.code} onChange={(v) => setForm({ ...form, code: v })} required placeholder="CS-101" />
-          <TextInput label="Title" value={form.title} onChange={(v) => setForm({ ...form, title: v })} required placeholder="Introduction to Computer Science" />
-          <TextInput label="Description" value={form.description} onChange={(v) => setForm({ ...form, description: v })} placeholder="optional" />
-          <TextInput label="Credits" type="number" value={String(form.credits)} onChange={(v) => setForm({ ...form, credits: Number(v) })} />
-          <SelectInput
-            label="Teacher"
-            value={form.teacherId}
-            onChange={(v) => setForm({ ...form, teacherId: v })}
-            options={teacherOptions}
-          />
-          {teachersError ? (
-            <p className="text-xs text-rose-600 dark:text-rose-400">
-              Couldn’t load teachers: {teachersError}
-            </p>
-          ) : teachers.length === 0 ? (
-            <p className="text-xs text-ink-500">No teachers yet — create one from the Teachers page to assign here.</p>
-          ) : (
-            <p className="text-xs text-ink-500">{teachers.length} teacher{teachers.length === 1 ? '' : 's'} available.</p>
-          )}
+        <form id="course-form" onSubmit={submit} className="space-y-6">
+          <FormSection
+            title="Course identity"
+            description="Shown across catalogues, schedules and grade reports."
+            required
+          >
+            <FormGrid cols={3}>
+              <TextInput
+                label="Code"
+                value={form.code}
+                onChange={(v) => setForm({ ...form, code: v })}
+                required
+                placeholder="CS-101"
+                hint="Short identifier (institution-wide)."
+                maxLength={20}
+              />
+              <FormFull>
+                <TextInput
+                  label="Title"
+                  value={form.title}
+                  onChange={(v) => setForm({ ...form, title: v })}
+                  required
+                  placeholder="Introduction to Computer Science"
+                  maxLength={200}
+                />
+              </FormFull>
+            </FormGrid>
+          </FormSection>
+
+          <FormSection
+            title="Academic configuration"
+            description="Weight and ownership of the course."
+          >
+            <FormGrid cols={2}>
+              <TextInput
+                label="Credits"
+                type="number"
+                value={String(form.credits)}
+                onChange={(v) => setForm({ ...form, credits: Number(v) })}
+                hint="Number of credits awarded on completion."
+              />
+              <SelectInput
+                label="Teacher"
+                value={form.teacherId}
+                onChange={(v) => setForm({ ...form, teacherId: v })}
+                options={teacherOptions}
+                hint={
+                  teachersError
+                    ? `Couldn’t load teachers: ${teachersError}`
+                    : teachers.length === 0
+                      ? 'No teachers yet — create one from the Teachers page to assign here.'
+                      : `${teachers.length} teacher${teachers.length === 1 ? '' : 's'} available.`
+                }
+              />
+            </FormGrid>
+          </FormSection>
+
+          <FormSection
+            title="Description"
+            description="What this course is about. Shown to students before they enrol."
+          >
+            <TextAreaInput
+              label="Course description"
+              value={form.description}
+              onChange={(v) => setForm({ ...form, description: v })}
+              placeholder="Brief summary of objectives, prerequisites and assessment style."
+              rows={4}
+              maxLength={2000}
+            />
+          </FormSection>
         </form>
       </Modal>
 
@@ -218,6 +274,10 @@ export default function CoursesPage() {
         open={!!attaching}
         onClose={() => setAttaching(null)}
         title={attaching ? `Attachments · ${attaching.code}` : 'Attachments'}
+        description="Pick syllabus, slides and supporting material from the institution media library, or upload new files."
+        icon={<Paperclip className="size-5" />}
+        intent="info"
+        size="2xl"
         footer={<Button variant="ghost" onClick={() => setAttaching(null)}>Close</Button>}
       >
         {attaching && <CourseMediaManager courseId={attaching.id} />}

@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { KeyRound, ShieldCheck } from 'lucide-react';
+import { KeyRound, ShieldCheck, UserPlus } from 'lucide-react';
 import { Topbar, PrimaryButton } from '@/components/Topbar';
 import { DataTable, Avatar, Badge } from '@/components/DataTable';
-import { Modal, TextInput, Button } from '@/components/ui';
+import { Modal, TextInput, Button, FormSection, FormGrid, FormFull } from '@/components/ui';
 import { PasswordReveal } from '@/components/PasswordReveal';
 import { useDialog } from '@/components/DialogProvider';
 import { api } from '@/lib/api';
@@ -182,32 +182,85 @@ export default function UsersPage() {
       <Modal
         open={openCreate}
         onClose={() => setOpenCreate(false)}
-        title="Create user"
+        title="Create a new user"
+        description="Provision an account and assign the right role. Additional roles can be stacked from the user row afterwards."
+        icon={<UserPlus className="size-5" />}
+        intent="primary"
+        size="xl"
         footer={
           <>
             <Button variant="ghost" onClick={() => setOpenCreate(false)}>Cancel</Button>
-            <Button type="submit" onClick={() => (document.getElementById('user-form') as HTMLFormElement)?.requestSubmit()}>Create</Button>
+            <Button type="submit" onClick={() => (document.getElementById('user-form') as HTMLFormElement)?.requestSubmit()}>
+              <UserPlus className="size-4" /> Create user
+            </Button>
           </>
         }
       >
-        <form id="user-form" onSubmit={create} className="space-y-4">
-          <TextInput label="Full name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} required />
-          <TextInput label="Email" type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} required />
-          <TextInput label="Password" type="password" value={form.password} onChange={(v) => setForm({ ...form, password: v })} required placeholder="min 8 chars" />
-          <label className="block">
-            <span className="text-sm font-medium text-ink-700 dark:text-ink-200">Primary role</span>
-            <select
-              value={form.role}
-              onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
-              className="mt-1 w-full px-3 py-2 rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 text-ink-900 dark:text-ink-100 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200 dark:focus:ring-brand-500/30"
-            >
-              {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-            </select>
-            <span className="block text-xs text-ink-500 dark:text-ink-400 mt-1">{ROLE_HINT[form.role]}</span>
-          </label>
-          <p className="text-xs text-ink-500 dark:text-ink-400">
-            Additional roles can be granted from the user row after creation.
-          </p>
+        <form id="user-form" onSubmit={create} className="space-y-6">
+          <FormSection
+            title="Identity"
+            description="How the user will be addressed and signed in."
+            required
+          >
+            <FormGrid cols={2}>
+              <TextInput
+                label="Full name"
+                value={form.name}
+                onChange={(v) => setForm({ ...form, name: v })}
+                required
+                placeholder="e.g. Jane Doe"
+                hint="Displayed across the platform."
+                maxLength={120}
+              />
+              <TextInput
+                label="Email"
+                type="email"
+                value={form.email}
+                onChange={(v) => setForm({ ...form, email: v })}
+                required
+                placeholder="name@institution.tld"
+                hint="Used as the sign-in identifier. Must be unique."
+              />
+            </FormGrid>
+          </FormSection>
+
+          <FormSection
+            title="Initial password"
+            description="Share this with the user out-of-band. They can request a reset later from /forgot-password."
+            required
+          >
+            <TextInput
+              label="Password"
+              type="password"
+              value={form.password}
+              onChange={(v) => setForm({ ...form, password: v })}
+              required
+              placeholder="At least 8 characters"
+              hint="Minimum 8 characters. Use a strong, unique password — the user can change it later."
+            />
+          </FormSection>
+
+          <FormSection
+            title="Primary role"
+            description="Drives where the user lands after sign-in and the API privileges they hold by default."
+            required
+          >
+            <label className="block">
+              <select
+                value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
+                className="w-full px-3 py-2 rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 text-ink-900 dark:text-ink-100 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200 dark:focus:ring-brand-500/30"
+              >
+                {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+              </select>
+              <span className="block text-xs text-ink-500 dark:text-ink-400 mt-1.5">{ROLE_HINT[form.role]}</span>
+            </label>
+            <FormFull>
+              <div className="text-xs text-ink-500 dark:text-ink-400 bg-ink-50 dark:bg-ink-800/60 rounded-lg px-3 py-2 border border-ink-200 dark:border-ink-700">
+                Tip: you can grant additional roles (e.g. give a Teacher the Manager privileges) from the user's row after creation.
+              </div>
+            </FormFull>
+          </FormSection>
         </form>
       </Modal>
 
@@ -216,6 +269,10 @@ export default function UsersPage() {
         open={!!rolesEdit}
         onClose={() => setRolesEdit(null)}
         title={rolesEdit ? `Manage roles — ${rolesEdit.user.name}` : 'Manage roles'}
+        description="Set the primary role (controls landing page) and stack additional API-only privileges."
+        icon={<ShieldCheck className="size-5" />}
+        intent="primary"
+        size="lg"
         footer={
           <>
             <Button variant="ghost" onClick={() => setRolesEdit(null)}>Cancel</Button>
@@ -224,34 +281,31 @@ export default function UsersPage() {
         }
       >
         {rolesEdit && (
-          <div className="space-y-5">
-            <div>
-              <label className="block">
-                <span className="text-sm font-medium text-ink-700 dark:text-ink-200">Primary role</span>
-                <span className="block text-xs text-ink-500 dark:text-ink-400 mb-1.5">
-                  Drives the user's landing page after sign-in.
-                </span>
-                <select
-                  value={rolesEdit.primary}
-                  onChange={(e) => {
-                    const primary = e.target.value as Role;
-                    const extras = new Set(rolesEdit.extras);
-                    extras.delete(primary);
-                    setRolesEdit({ ...rolesEdit, primary, extras });
-                  }}
-                  className="w-full px-3 py-2 rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200 dark:focus:ring-brand-500/30"
-                >
-                  {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-                </select>
-                <span className="block text-xs text-ink-500 dark:text-ink-400 mt-1">{ROLE_HINT[rolesEdit.primary]}</span>
-              </label>
-            </div>
+          <div className="space-y-6">
+            <FormSection
+              title="Primary role"
+              description="Determines where the user lands after sign-in and which UI scope they see."
+              required
+            >
+              <select
+                value={rolesEdit.primary}
+                onChange={(e) => {
+                  const primary = e.target.value as Role;
+                  const extras = new Set(rolesEdit.extras);
+                  extras.delete(primary);
+                  setRolesEdit({ ...rolesEdit, primary, extras });
+                }}
+                className="w-full px-3 py-2 rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200 dark:focus:ring-brand-500/30"
+              >
+                {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+              </select>
+              <span className="block text-xs text-ink-500 dark:text-ink-400 mt-1.5">{ROLE_HINT[rolesEdit.primary]}</span>
+            </FormSection>
 
-            <div>
-              <div className="text-sm font-medium text-ink-700 dark:text-ink-200">Additional granted roles</div>
-              <div className="text-xs text-ink-500 dark:text-ink-400 mb-2">
-                Stack roles to grant extra privileges (e.g. give a teacher Manager rights without changing where they land).
-              </div>
+            <FormSection
+              title="Additional granted roles"
+              description="Stack roles to grant extra privileges without changing the landing page (e.g. a Teacher with Manager rights)."
+            >
               <div className="space-y-2">
                 {ROLES.filter((r) => r !== rolesEdit.primary).map((r) => {
                   const checked = rolesEdit.extras.has(r);
@@ -278,7 +332,7 @@ export default function UsersPage() {
                   );
                 })}
               </div>
-            </div>
+            </FormSection>
           </div>
         )}
       </Modal>
