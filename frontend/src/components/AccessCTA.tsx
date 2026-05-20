@@ -82,7 +82,7 @@ export default function AccessCTA({ variant = 'hero' }: { variant?: Variant }) {
                 className="inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-xl bg-grad-brand font-semibold shadow-xl shadow-brand-500/30 hover:scale-[1.02] active:scale-[0.99] transition text-xs sm:text-base"
             >
                 <LayoutDashboard className="size-4" />
-                <span className="hidden xs:inline">Go to your space</span><span className="xs:hidden">My space</span>
+                <span className="hidden sm:inline">Go to your space</span><span className="sm:hidden">My space</span>
                 <ArrowRight className="size-4" />
             </Link>
         );
@@ -93,7 +93,7 @@ export default function AccessCTA({ variant = 'hero' }: { variant?: Variant }) {
             className="inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-xl bg-grad-brand font-semibold shadow-xl shadow-brand-500/30 hover:scale-[1.02] active:scale-[0.99] transition text-xs sm:text-base"
         >
             <LogIn className="size-4" />
-            <span className="hidden xs:inline">Sign in to your space</span><span className="xs:hidden">Sign in</span>
+            <span className="hidden sm:inline">Sign in to your space</span><span className="sm:hidden">Sign in</span>
             <ArrowRight className="size-4" />
         </Link>
     );

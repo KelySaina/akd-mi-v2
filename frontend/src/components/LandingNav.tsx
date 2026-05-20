@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Menu, X } from 'lucide-react';
 
 type Props = { hasGallery: boolean };
@@ -13,6 +14,9 @@ const LINKS: { href: string; label: string; key: 'about' | 'contact' | 'gallery'
 
 export default function LandingNav({ hasGallery }: Props) {
     const [open, setOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => { setMounted(true); }, []);
 
     // Lock scroll while the sheet is open and close on Escape
     useEffect(() => {
@@ -28,6 +32,17 @@ export default function LandingNav({ hasGallery }: Props) {
     }, [open]);
 
     const links = LINKS.filter((l) => l.key !== 'gallery' || hasGallery);
+
+    const handleNav = (href: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+        e.preventDefault();
+        setOpen(false);
+        // Wait one frame for scroll-lock cleanup before scrolling.
+        requestAnimationFrame(() => {
+            const el = document.querySelector(href);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            else window.location.hash = href;
+        });
+    };
 
     return (
         <>
@@ -50,11 +65,11 @@ export default function LandingNav({ hasGallery }: Props) {
                 <Menu className="size-5" strokeWidth={2.25} />
             </button>
 
-            {/* mobile sheet */}
-            {open && (
-                <div className="lg:hidden fixed inset-0 z-50">
+            {/* mobile sheet (top drawer) — portaled to body to escape header stacking context */}
+            {open && mounted && createPortal(
+                <div className="lg:hidden fixed inset-0 z-[100]">
                     <div
-                        className="absolute inset-0 bg-ink-950/70 backdrop-blur-sm"
+                        className="absolute inset-0 bg-ink-950/60 backdrop-blur-sm"
                         onClick={() => setOpen(false)}
                         aria-hidden="true"
                     />
@@ -62,33 +77,34 @@ export default function LandingNav({ hasGallery }: Props) {
                         id="landing-mobile-menu"
                         role="dialog"
                         aria-modal="true"
-                        className="absolute top-0 right-0 h-full w-[82%] max-w-sm bg-ink-900/95 border-l border-white/10 shadow-2xl flex flex-col"
+                        className="absolute top-0 inset-x-0 max-h-[90vh] overflow-y-auto bg-white dark:bg-ink-900 border-b border-ink-200 dark:border-ink-800 shadow-2xl flex flex-col text-ink-900 dark:text-ink-100 animate-[slideDown_180ms_ease-out]"
                     >
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-                            <span className="text-sm uppercase tracking-wider text-white/60">Menu</span>
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-ink-200 dark:border-ink-800">
+                            <span className="text-xs uppercase tracking-wider text-ink-500 dark:text-ink-400">Menu</span>
                             <button
                                 type="button"
                                 onClick={() => setOpen(false)}
-                                className="inline-flex items-center justify-center size-9 rounded-lg hover:bg-white/10 transition text-white/80 hover:text-white"
+                                className="inline-flex items-center justify-center size-9 rounded-lg hover:bg-ink-100 dark:hover:bg-ink-800 text-ink-500 dark:text-ink-400 transition"
                                 aria-label="Close menu"
                             >
                                 <X className="size-5" />
                             </button>
                         </div>
-                        <nav className="flex-1 px-3 py-4 space-y-1">
+                        <nav className="px-3 py-3 space-y-1">
                             {links.map((l) => (
                                 <a
                                     key={l.key}
                                     href={l.href}
-                                    onClick={() => setOpen(false)}
-                                    className="block px-4 py-3 rounded-lg text-base font-medium text-white/90 hover:bg-white/10 hover:text-white transition"
+                                    onClick={handleNav(l.href)}
+                                    className="block px-4 py-3 rounded-lg text-base font-medium text-ink-700 dark:text-ink-200 hover:bg-ink-100 dark:hover:bg-ink-800 hover:text-ink-900 dark:hover:text-white transition"
                                 >
                                     {l.label}
                                 </a>
                             ))}
                         </nav>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </>
     );

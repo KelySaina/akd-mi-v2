@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, Layers,
-  Building2, Calendar, FileBarChart, Settings, LogOut, ChevronRight, Image as ImageIcon,
+  Building2, Calendar, FileBarChart, Settings, LogOut, ChevronRight, Image as ImageIcon, Palette,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { MobileSidebarShell } from './MobileSidebarShell';
@@ -16,6 +16,7 @@ const nav = [
   { href: '/admin/courses',      label: 'Courses',    icon: BookOpen },
   { href: '/admin/modules',      label: 'Modules',    icon: Layers },
   { href: '/admin/institution',  label: 'Institution',icon: Building2 },
+  { href: '/admin/site',         label: 'Site builder',icon: Palette },
   { href: '/admin/media',        label: 'Media',      icon: ImageIcon },
   { href: '/admin/schedule',     label: 'Schedule',   icon: Calendar },
   { href: '/admin/reports',      label: 'Reports',    icon: FileBarChart },

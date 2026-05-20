@@ -40,7 +40,7 @@ export function MobileSidebarShell({
     return (
         <div className="lg:hidden">
             {/* sticky topbar */}
-            <div className="sticky top-0 z-30 flex items-center gap-3 px-3 sm:px-4 py-2.5 border-b border-ink-200 dark:border-ink-800 bg-white/95 dark:bg-ink-900/95 backdrop-blur">
+            <div className="sticky top-0 z-30 flex items-center gap-3 px-3 sm:px-4 py-2.5 border-b border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 shadow-sm">
                 <button
                     type="button"
                     onClick={() => setOpen(true)}
