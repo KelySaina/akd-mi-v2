@@ -1,26 +1,68 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen,
-  Calendar, FileBarChart, Settings, LogOut, ChevronRight, Image as ImageIcon, ClipboardList, KeyRound,
+  Calendar, FileBarChart, Settings, ChevronRight, ChevronDown,
+  Image as ImageIcon, ClipboardList, KeyRound,
 } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
 import { MobileSidebarShell } from './MobileSidebarShell';
 
-const nav = [
-  { href: '/admin',              label: 'Dashboard',  icon: LayoutDashboard },
-  { href: '/admin/users',        label: 'Users',      icon: Users },
-  { href: '/admin/students',     label: 'Students',   icon: GraduationCap },
-  { href: '/admin/teachers',     label: 'Teachers',   icon: Users },
-  { href: '/admin/courses',      label: 'Courses',    icon: BookOpen },
-  { href: '/admin/enrollments',  label: 'Enrollments',icon: ClipboardList },
-  { href: '/admin/requests',     label: 'Requests',   icon: KeyRound },
-  { href: '/admin/media',        label: 'Media',      icon: ImageIcon },
-  { href: '/admin/schedule',     label: 'Schedule',   icon: Calendar },
-  { href: '/admin/reports',      label: 'Reports',    icon: FileBarChart },
-  { href: '/admin/settings',     label: 'Settings',   icon: Settings },
+type NavItem = { href: string; label: string; icon: typeof LayoutDashboard };
+type NavGroup = { id: string; label: string; items: NavItem[] };
+
+const groups: NavGroup[] = [
+  {
+    id: 'overview',
+    label: 'Overview',
+    items: [
+      { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+    ],
+  },
+  {
+    id: 'people',
+    label: 'People',
+    items: [
+      { href: '/admin/users',    label: 'Users',    icon: Users },
+      { href: '/admin/students', label: 'Students', icon: GraduationCap },
+      { href: '/admin/teachers', label: 'Teachers', icon: Users },
+    ],
+  },
+  {
+    id: 'academics',
+    label: 'Academics',
+    items: [
+      { href: '/admin/courses',     label: 'Courses',     icon: BookOpen },
+      { href: '/admin/enrollments', label: 'Enrollments', icon: ClipboardList },
+      { href: '/admin/schedule',    label: 'Schedule',    icon: Calendar },
+    ],
+  },
+  {
+    id: 'resources',
+    label: 'Resources',
+    items: [
+      { href: '/admin/media', label: 'Media', icon: ImageIcon },
+    ],
+  },
+  {
+    id: 'operations',
+    label: 'Operations',
+    items: [
+      { href: '/admin/requests', label: 'Requests', icon: KeyRound },
+      { href: '/admin/reports',  label: 'Reports',  icon: FileBarChart },
+    ],
+  },
 ];
+
+const settingsItem: NavItem = { href: '/admin/settings', label: 'Settings', icon: Settings };
+
+const STORAGE_KEY = 'akdmi:sidebar:openGroups';
+
+function loadOpenState(): Record<string, boolean> {
+  if (typeof window === 'undefined') return {};
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
+}
 
 export function Sidebar() {
   const instance = process.env.NEXT_PUBLIC_INSTANCE_NAME ?? 'AKD-MI';
@@ -50,54 +92,87 @@ export function Sidebar() {
   );
 }
 
+function isItemActive(pathname: string, href: string) {
+  return pathname === href || (href !== '/admin' && pathname.startsWith(href));
+}
+
 function SidebarBody() {
   const pathname = usePathname();
+
+  // Persist collapse state + auto-open the group containing the active route.
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    const stored = loadOpenState();
+    const next: Record<string, boolean> = {};
+    for (const g of groups) {
+      const hasActive = g.items.some((it) => isItemActive(pathname, it.href));
+      next[g.id] = hasActive ? true : (stored[g.id] ?? true);
+    }
+    setOpen(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  function toggle(id: string) {
+    setOpen((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }
+
   return (
-    <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
-      {nav.map(({ href, label, icon: Icon }) => {
-        const active = pathname === href || (href !== '/admin' && pathname.startsWith(href));
+    <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
+      {groups.map((g) => {
+        const isOpen = open[g.id] ?? true;
+        const hasActive = g.items.some((it) => isItemActive(pathname, it.href));
         return (
-          <Link
-            key={href}
-            href={href}
-            className={[
-              'group flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition',
-              active
-                ? 'bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-300 font-medium'
-                : 'text-ink-600 dark:text-ink-300 hover:bg-ink-50 dark:hover:bg-ink-800 hover:text-ink-900 dark:hover:text-white',
-            ].join(' ')}
-          >
-            <Icon className={['size-4', active ? 'text-brand-600 dark:text-brand-400' : 'text-ink-400 group-hover:text-ink-600 dark:group-hover:text-ink-200'].join(' ')} />
-            <span className="flex-1">{label}</span>
-            {active && <ChevronRight className="size-3.5 text-brand-500" />}
-          </Link>
+          <div key={g.id}>
+            <button
+              type="button"
+              onClick={() => toggle(g.id)}
+              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] font-semibold uppercase tracking-wider text-ink-400 dark:text-ink-500 hover:text-ink-600 dark:hover:text-ink-300 transition"
+            >
+              <ChevronRight className={`size-3 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+              <span className="flex-1 text-left">{g.label}</span>
+              {!isOpen && hasActive && <span className="size-1.5 rounded-full bg-brand-500" />}
+            </button>
+            {isOpen && (
+              <div className="mt-0.5 space-y-0.5">
+                {g.items.map((it) => <NavLink key={it.href} item={it} pathname={pathname} />)}
+              </div>
+            )}
+          </div>
         );
       })}
     </nav>
   );
 }
 
+function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
+  const { href, label, icon: Icon } = item;
+  const active = isItemActive(pathname, href);
+  return (
+    <Link
+      href={href}
+      className={[
+        'group flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition',
+        active
+          ? 'bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-300 font-medium'
+          : 'text-ink-600 dark:text-ink-300 hover:bg-ink-50 dark:hover:bg-ink-800 hover:text-ink-900 dark:hover:text-white',
+      ].join(' ')}
+    >
+      <Icon className={['size-4', active ? 'text-brand-600 dark:text-brand-400' : 'text-ink-400 group-hover:text-ink-600 dark:group-hover:text-ink-200'].join(' ')} />
+      <span className="flex-1">{label}</span>
+      {active && <ChevronDown className="size-3.5 text-brand-500 rotate-[-90deg]" />}
+    </Link>
+  );
+}
+
 function SidebarFooter() {
-  const { user, logout } = useAuth();
+  const pathname = usePathname();
   return (
     <div className="p-3 border-t border-ink-200 dark:border-ink-800">
-      <div className="flex items-center gap-3 px-3 py-2">
-        <div className="size-8 rounded-full bg-grad-brand text-white grid place-items-center text-xs font-semibold">
-          {user?.name?.slice(0, 1)?.toUpperCase() ?? '·'}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium truncate">{user?.name ?? 'Guest'}</div>
-          <div className="text-xs text-ink-500 dark:text-ink-400 truncate">{user?.email ?? ''}</div>
-        </div>
-        <button
-          onClick={logout}
-          className="p-1.5 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 text-ink-500 dark:text-ink-400"
-          title="Sign out"
-          aria-label="Sign out"
-        >
-          <LogOut className="size-4" />
-        </button>
-      </div>
+      <NavLink item={settingsItem} pathname={pathname} />
     </div>
   );
 }

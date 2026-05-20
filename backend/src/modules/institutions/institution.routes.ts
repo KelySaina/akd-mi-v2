@@ -137,7 +137,10 @@ export async function institutionRoutes(app: FastifyInstance) {
         });
     });
 
-    priv.post('/media', { preHandler: requireRole('INSTANCE_ADMIN', 'MANAGER') }, async (req, reply) => {
+    // Media library: teachers can contribute uploads (used by CourseMediaManager
+    // when attaching syllabus/material to their own courses). Curation (patch/delete)
+    // stays restricted to admin/manager.
+    priv.post('/media', { preHandler: requireRole('INSTANCE_ADMIN', 'MANAGER', 'TEACHER') }, async (req, reply) => {
         try {
             const body = MediaBody.parse(req.body);
             const inst = await getOrCreateInstitution();
