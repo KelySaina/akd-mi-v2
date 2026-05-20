@@ -68,4 +68,4 @@ function parseDurationToMs(s: string): number {
     }
 }
 
-export type JwtPayload = { sub: string; role: Role; email: string };
+export type JwtPayload = { sub: string; role: Role; roles?: Role[]; email: string };

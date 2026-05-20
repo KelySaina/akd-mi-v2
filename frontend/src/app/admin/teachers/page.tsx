@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Topbar, PrimaryButton } from '@/components/Topbar';
 import { DataTable, Avatar, Badge } from '@/components/DataTable';
 import { Modal, TextInput, Button } from '@/components/ui';
+import { PasswordReveal } from '@/components/PasswordReveal';
 import { api } from '@/lib/api';
 
 type Teacher = {
@@ -74,7 +75,7 @@ export default function TeachersPage() {
 
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => { if (!generated) setOpen(false); }}
         title={generated ? 'Teacher created' : 'Create teacher'}
         footer={
           generated ? (
@@ -88,10 +89,7 @@ export default function TeachersPage() {
         }
       >
         {generated ? (
-          <div className="space-y-3">
-            <p className="text-sm">Initial password (shown once):</p>
-            <code className="block px-3 py-2 bg-ink-100 dark:bg-ink-800 text-ink-900 dark:text-ink-100 rounded-lg font-mono text-sm">{generated}</code>
-          </div>
+          <PasswordReveal password={generated} label="Shown only once. Copy and share it with the teacher now — it cannot be recovered later." />
         ) : (
           <form id="teacher-form" onSubmit={create} className="space-y-4">
             <TextInput label="Full name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} required />

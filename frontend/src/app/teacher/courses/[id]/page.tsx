@@ -6,6 +6,8 @@ import { ArrowLeft, BookOpen, Plus, Pencil, Trash2, Loader2, Award, TrendingUp, 
 import { Topbar } from '@/components/Topbar';
 import { Avatar, Badge } from '@/components/DataTable';
 import { Modal, TextInput, Button } from '@/components/ui';
+import { CourseMediaManager } from '@/components/CourseMediaManager';
+import { useDialog } from '@/components/DialogProvider';
 import { api } from '@/lib/api';
 
 type Course = { id: string; code: string; title: string; credits: number; description?: string | null };
@@ -35,6 +37,7 @@ export default function TeacherCoursePage() {
 
   // Modal state
   const [modal, setModal] = useState<{ enrollment: Enrollment; grade?: Grade } | null>(null);
+  const dialog = useDialog();
 
   async function load() {
     setError(null);
@@ -43,7 +46,8 @@ export default function TeacherCoursePage() {
       const c = await api.get<Course>(`/courses/${courseId}`);
       setCourse(c);
       // 2) my enrollments scoped server-side to me; filter to this course
-      const all = await api.get<Enrollment[]>(`/enrollments?courseId=${courseId}`);
+      const res = await api.get<{ items: Enrollment[] } | Enrollment[]>(`/enrollments?courseId=${courseId}&limit=200`);
+      const all = Array.isArray(res) ? res : (res?.items ?? []);
       setEnrollments(all);
       // 3) grades per enrollment in parallel
       const entries = await Promise.all(
@@ -70,7 +74,8 @@ export default function TeacherCoursePage() {
   const overall = computeAvg(allGrades);
 
   async function deleteGrade(g: Grade) {
-    if (!confirm('Delete this evaluation?')) return;
+    const ok = await dialog.confirm({ title: 'Delete evaluation', message: 'Delete this evaluation?', tone: 'danger', confirmLabel: 'Delete' });
+    if (!ok) return;
     setError(null);
     try { await api.delete(`/grades/${g.id}`); await load(); }
     catch (e: any) { setError(e.message); }
@@ -142,6 +147,12 @@ export default function TeacherCoursePage() {
         {error && (
           <div className="text-sm text-rose-700 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-lg px-3 py-2">{error}</div>
         )}
+
+        {/* Materials */}
+        <div className="bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 rounded-2xl p-4">
+          <h3 className="text-sm font-semibold mb-3">Course materials</h3>
+          <CourseMediaManager courseId={courseId} />
+        </div>
 
         {/* Roster */}
         {visible.length === 0 ? (

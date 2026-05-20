@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/Sidebar';
 import { useAuth } from '@/lib/auth';
-import { canAccess, homeForRole } from '@/lib/auth';
+import { canAccessArea, homeForRole } from '@/lib/auth';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, loaded } = useAuth();
@@ -17,7 +17,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       router.replace(`/login?returnTo=${returnTo}`);
       return;
     }
-    if (!canAccess(user.role, 'admin')) {
+    if (!canAccessArea(user, 'admin')) {
       router.replace(homeForRole(user.role));
     }
   }, [loaded, user, router, pathname]);
@@ -29,7 +29,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </div>
     );
   }
-  if (!user || !canAccess(user.role, 'admin')) return null;
+  if (!user || !canAccessArea(user, 'admin')) return null;
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-ink-50 dark:bg-ink-950 text-ink-900 dark:text-ink-100">

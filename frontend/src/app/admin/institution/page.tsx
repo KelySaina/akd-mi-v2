@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { MediaField } from '@/components/MediaPicker';
+import { useDialog } from '@/components/DialogProvider';
 
 type Address = {
   id: string; label?: string | null; line1: string; line2?: string | null;
@@ -270,8 +271,10 @@ function AddressesTab({ inst, reload, onError }: { inst: Institution; reload: ()
   function openNew() { setEditing(null); setOpen(true); }
   function openEdit(a: Address) { setEditing(a); setOpen(true); }
 
+  const dialog = useDialog();
   async function remove(id: string) {
-    if (!confirm('Delete this address?')) return;
+    const ok = await dialog.confirm({ title: 'Delete address', message: 'Delete this address?', tone: 'danger', confirmLabel: 'Delete' });
+    if (!ok) return;
     onError(null);
     try { await api.delete(`/institution/addresses/${id}`); await reload(); }
     catch (e: any) { onError(e.message); }
@@ -420,9 +423,11 @@ const TYPE_ICON: Record<string, any> = {
 
 function ContactsTab({ inst, reload, onError }: { inst: Institution; reload: () => Promise<void>; onError: (m: string | null) => void }) {
   const [open, setOpen] = useState(false);
+  const dialog = useDialog();
 
   async function remove(id: string) {
-    if (!confirm('Delete this contact?')) return;
+    const ok = await dialog.confirm({ title: 'Delete contact', message: 'Delete this contact?', tone: 'danger', confirmLabel: 'Delete' });
+    if (!ok) return;
     onError(null);
     try { await api.delete(`/institution/contacts/${id}`); await reload(); }
     catch (e: any) { onError(e.message); }

@@ -10,6 +10,7 @@ import { Topbar } from '@/components/Topbar';
 import { Badge } from '@/components/DataTable';
 import { Modal, TextInput, Button } from '@/components/ui';
 import { MediaField } from '@/components/MediaPicker';
+import { useDialog } from '@/components/DialogProvider';
 import { api } from '@/lib/api';
 
 /* ───────── Types ───────── */
@@ -317,9 +318,16 @@ function EnrollmentsTab({
   student, enrollments, reload, onError,
 }: { student: Student; enrollments: Enrollment[]; reload: () => Promise<void>; onError: (m: string | null) => void }) {
   const [open, setOpen] = useState(false);
+  const dialog = useDialog();
 
   async function remove(id: string) {
-    if (!confirm('Remove this enrollment? Linked grades will be deleted as well.')) return;
+    const ok = await dialog.confirm({
+      title: 'Remove enrollment',
+      message: 'Remove this enrollment? Linked grades will be deleted as well.',
+      tone: 'danger',
+      confirmLabel: 'Remove',
+    });
+    if (!ok) return;
     onError(null);
     try { await api.delete(`/enrollments/${id}`); await reload(); }
     catch (e: any) { onError(e.message); }
@@ -489,9 +497,11 @@ function GradesTab({
 }: { student: Student; enrollments: Enrollment[]; reload: () => Promise<void>; onError: (m: string | null) => void }) {
   const [adding, setAdding] = useState<Enrollment | null>(null);
   const [editing, setEditing] = useState<Grade | null>(null);
+  const dialog = useDialog();
 
   async function remove(id: string) {
-    if (!confirm('Delete this grade?')) return;
+    const ok = await dialog.confirm({ title: 'Delete grade', message: 'Delete this grade?', tone: 'danger', confirmLabel: 'Delete' });
+    if (!ok) return;
     onError(null);
     try { await api.delete(`/grades/${id}`); await reload(); }
     catch (e: any) { onError(e.message); }

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { themeBootScript } from '@/lib/theme';
+import { DialogProvider } from '@/components/DialogProvider';
 
 async function getInstitution(): Promise<{ name?: string; description?: string | null; logoUrl?: string | null } | null> {
     const base = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL;
@@ -31,7 +32,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <head>
                 <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
             </head>
-            <body>{children}</body>
+            <body>
+                <DialogProvider>{children}</DialogProvider>
+            </body>
         </html>
     );
 }

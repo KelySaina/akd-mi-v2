@@ -2,13 +2,29 @@
 import { useEffect, useState } from 'react';
 import { api } from './api';
 
+export type Role = 'INSTANCE_ADMIN' | 'MANAGER' | 'TEACHER' | 'STUDENT' | 'PLATFORM_ADMIN' | 'INSTITUTION_OWNER';
+
 export type AuthUser = {
   id: string;
   email: string;
   name: string;
-  role: 'INSTANCE_ADMIN' | 'MANAGER' | 'TEACHER' | 'STUDENT' | 'PLATFORM_ADMIN' | 'INSTITUTION_OWNER';
+  role: Role;          // primary role — drives landing page
+  roles?: Role[];      // effective role set (primary ∪ extras). Newer backends include this.
   avatarUrl?: string | null;
 };
+
+/** Effective roles — falls back to [role] for older tokens. */
+export function rolesOf(u: AuthUser | null | undefined): Role[] {
+  if (!u) return [];
+  if (u.roles && u.roles.length) return u.roles;
+  return [u.role];
+}
+
+/** True if the user has any of the given roles in their effective set. */
+export function hasRole(u: AuthUser | null | undefined, ...roles: Role[]): boolean {
+  const set = rolesOf(u);
+  return roles.some((r) => set.includes(r));
+}
 
 const AUTH_EVENT = 'akdmi:auth';
 
@@ -62,6 +78,19 @@ export function canAccess(role: AuthUser['role'] | undefined | null, area: 'admi
   if (area === 'teacher') return role === 'TEACHER';
   // admin area: any non-student, non-teacher role
   return role !== 'STUDENT' && role !== 'TEACHER';
+}
+
+/** Multi-role aware area check for UI scopes.
+ *  Admin UI is reserved to INSTANCE_ADMIN — MANAGER is an API-only grant
+ *  (a teacher with the MANAGER extra gets manager API privileges but stays on /teacher).
+ */
+export function canAccessArea(user: AuthUser | null | undefined, area: 'admin' | 'student' | 'teacher'): boolean {
+  if (!user) return false;
+  const set = rolesOf(user);
+  if (area === 'admin')   return set.some((r) => r === 'INSTANCE_ADMIN' || r === 'PLATFORM_ADMIN' || r === 'INSTITUTION_OWNER');
+  if (area === 'teacher') return set.includes('TEACHER');
+  if (area === 'student') return set.includes('STUDENT');
+  return false;
 }
 
 /* ───── Hook ───── */

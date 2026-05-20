@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../../config/prisma.js';
-import { authenticate, requireRole } from '../../common/auth.js';
+import { authenticate, requireRole, hasRole } from '../../common/auth.js';
 import { PaginationQuery, skipTake } from '../../common/pagination.js';
 import { handleError } from '../../common/errors.js';
 import { hashPassword } from '../auth/auth.service.js';
@@ -86,7 +86,7 @@ export async function teacherRoutes(app: FastifyInstance) {
 
     app.get('/:id', async (req, reply) => {
         const { id } = req.params as { id: string };
-        if (req.user!.role === 'TEACHER') {
+        if (!hasRole(req.user, 'INSTANCE_ADMIN', 'MANAGER') && hasRole(req.user, 'TEACHER')) {
             const self = await prisma.teacher.findUnique({ where: { userId: req.user!.sub }, select: { id: true } });
             if (!self || self.id !== id) return reply.code(403).send({ error: 'Forbidden' });
         }

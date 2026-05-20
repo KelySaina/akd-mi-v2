@@ -5,6 +5,7 @@ import { Topbar, PrimaryButton } from '@/components/Topbar';
 import { Button, Modal, TextInput } from '@/components/ui';
 import { api, uploadFile } from '@/lib/api';
 import { MEDIA_KINDS, type MediaItem } from '@/components/MediaPicker';
+import { useDialog } from '@/components/DialogProvider';
 
 export default function MediaLibraryPage() {
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -16,6 +17,7 @@ export default function MediaLibraryPage() {
   const [dragOver, setDragOver] = useState(false);
   const [editItem, setEditItem] = useState<MediaItem | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const dialog = useDialog();
 
   async function reload() {
     setError(null);
@@ -39,7 +41,13 @@ export default function MediaLibraryPage() {
   }
 
   async function remove(id: string) {
-    if (!confirm('Delete this media item?')) return;
+    const ok = await dialog.confirm({
+      title: 'Delete media',
+      message: 'Delete this media item? It will be removed from all courses it is attached to.',
+      tone: 'danger',
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
     try { await api.delete(`/institution/media/${id}`); await reload(); }
     catch (e: any) { setError(e.message); }
   }

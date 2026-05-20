@@ -31,8 +31,10 @@ export function useTeacherEnrollments() {
 
   async function reload() {
     setError(null);
-    try { setData(await api.get<TeacherEnrollment[]>('/enrollments')); }
-    catch (e: any) { setError(e.message); }
+    try {
+      const res = await api.get<{ items: TeacherEnrollment[] } | TeacherEnrollment[]>('/enrollments?limit=200');
+      setData(Array.isArray(res) ? res : (res?.items ?? []));
+    } catch (e: any) { setError(e.message); }
   }
   useEffect(() => { (async () => { setLoading(true); await reload(); setLoading(false); })(); }, []);
   return { data, loading, error, reload, setError };

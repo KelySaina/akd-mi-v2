@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../../config/prisma.js';
 import { loadEnv } from '../../config/env.js';
-import { authenticate } from '../../common/auth.js';
+import { authenticate, effectiveRoles } from '../../common/auth.js';
 import { handleError } from '../../common/errors.js';
 import {
     createRefreshSession,
@@ -50,8 +50,9 @@ export async function authRoutes(app: FastifyInstance) {
             const ok = await verifyPassword(user.passwordHash, body.password);
             if (!ok) return reply.code(401).send({ error: 'InvalidCredentials' });
 
+            const roles = effectiveRoles(user.role, user.extraRoles);
             const accessToken = await reply.jwtSign(
-                { sub: user.id, role: user.role, email: user.email },
+                { sub: user.id, role: user.role, roles, email: user.email },
             );
             const refreshToken = newRefreshToken();
             await createRefreshSession(user.id, refreshToken, req.ip, req.headers['user-agent']);
@@ -71,7 +72,7 @@ export async function authRoutes(app: FastifyInstance) {
 
             return {
                 accessToken,
-                user: { id: user.id, email: user.email, name: user.name, role: user.role, avatarUrl: user.avatarUrl },
+                user: { id: user.id, email: user.email, name: user.name, role: user.role, roles, avatarUrl: user.avatarUrl },
             };
         } catch (err) {
             return handleError(reply, err);
@@ -105,6 +106,7 @@ export async function authRoutes(app: FastifyInstance) {
             const accessToken = await reply.jwtSign({
                 sub: session.user.id,
                 role: session.user.role,
+                roles: effectiveRoles(session.user.role, session.user.extraRoles),
                 email: session.user.email,
             });
             return { accessToken };
@@ -123,10 +125,10 @@ export async function authRoutes(app: FastifyInstance) {
     app.get('/me', { preHandler: authenticate }, async (req, reply) => {
         const u = await prisma.user.findUnique({
             where: { id: req.user!.sub },
-            select: { id: true, email: true, name: true, role: true, avatarUrl: true, phone: true, lastLoginAt: true },
+            select: { id: true, email: true, name: true, role: true, extraRoles: true, avatarUrl: true, phone: true, lastLoginAt: true },
         });
         if (!u) return reply.code(404).send({ error: 'NotFound' });
-        return u;
+        return { ...u, roles: effectiveRoles(u.role, u.extraRoles) };
     });
 
     app.patch('/me', { preHandler: authenticate }, async (req, reply) => {

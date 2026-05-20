@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Upload, Loader2, Search, Check, ImagePlus, Trash2, Copy } from 'lucide-react';
+import { Upload, Loader2, Search, Check, ImagePlus, Trash2, Copy, FileText, Film, Link as LinkIcon } from 'lucide-react';
 import { api, uploadFile } from '@/lib/api';
 import { Modal, Button } from '@/components/ui';
 
@@ -8,19 +8,57 @@ export type MediaItem = {
   id: string;
   kind: string;
   url: string;
+  title?: string | null;
   caption?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  size?: number | null;
   sortOrder: number;
   createdAt: string;
 };
 
-export const MEDIA_KINDS = ['logo', 'cover', 'gallery', 'document', 'other'];
+export const MEDIA_KINDS = ['logo', 'cover', 'gallery', 'document', 'video', 'other'];
+
+function kindFromMime(mime?: string | null): string {
+  if (!mime) return 'other';
+  if (mime.startsWith('image/')) return 'gallery';
+  if (mime.startsWith('video/')) return 'video';
+  return 'document';
+}
+
+export function isImageMedia(m: { mimeType?: string | null; kind: string; url: string }): boolean {
+  if (m.mimeType) return m.mimeType.startsWith('image/');
+  if (['logo', 'cover', 'gallery'].includes(m.kind)) return true;
+  return /\.(png|jpe?g|gif|webp|svg|avif)(\?|$)/i.test(m.url);
+}
+
+export function mediaLabel(m: MediaItem): string {
+  return m.title || m.filename || m.caption || m.url.split('/').pop() || m.url;
+}
+
+export function formatBytes(n?: number | null): string {
+  if (!n || n <= 0) return '';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let i = 0; let v = n;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
+}
 
 /** Upload one or more files → create media rows. Returns the created items. */
-export async function uploadAndRegister(files: File[], kind = 'gallery'): Promise<MediaItem[]> {
+export async function uploadAndRegister(files: File[], kindHint?: string): Promise<MediaItem[]> {
   const created: MediaItem[] = [];
   for (const file of files) {
     const up = await uploadFile(file);
-    const m = await api.post<MediaItem>('/institution/media', { kind, url: up.url });
+    const mime = up.mimeType ?? file.type ?? null;
+    const kind = kindHint && kindHint !== 'auto' ? kindHint : kindFromMime(mime);
+    const m = await api.post<MediaItem>('/institution/media', {
+      kind,
+      url: up.url,
+      title: file.name,
+      filename: file.name,
+      mimeType: mime,
+      size: up.size ?? file.size ?? null,
+    });
     created.push(m);
   }
   return created;
@@ -36,6 +74,7 @@ export function MediaPicker({
   onSelect,
   multiple = false,
   defaultKind = 'gallery',
+  accept = 'image/*',
   title = 'Select media',
 }: {
   open: boolean;
@@ -43,6 +82,7 @@ export function MediaPicker({
   onSelect: (items: MediaItem[]) => void;
   multiple?: boolean;
   defaultKind?: string;
+  accept?: string;
   title?: string;
 }) {
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -139,7 +179,7 @@ export function MediaPicker({
           <input
             ref={fileInput}
             type="file"
-            accept="image/*"
+            accept={accept}
             multiple={multiple}
             className="hidden"
             onChange={(e) => onFiles(e.target.files)}
@@ -162,12 +202,13 @@ export function MediaPicker({
           ) : filtered.length === 0 ? (
             <div className="h-64 grid place-items-center text-ink-500 dark:text-ink-400 text-sm gap-3">
               <ImagePlus className="size-8 opacity-50" />
-              <div>Your library is empty. Upload an image to get started.</div>
+              <div>Your library is empty. Upload a file to get started.</div>
             </div>
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {filtered.map((m) => {
                 const isSel = selected.has(m.id);
+                const isImg = isImageMedia(m);
                 return (
                   <button
                     key={m.id}
@@ -179,11 +220,20 @@ export function MediaPicker({
                         ? 'border-brand-500 ring-2 ring-brand-300 dark:ring-brand-500/40'
                         : 'border-transparent hover:border-ink-300 dark:hover:border-ink-700',
                     ].join(' ')}
+                    title={mediaLabel(m)}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={m.url} alt={m.caption ?? ''} className="size-full object-cover bg-ink-100 dark:bg-ink-800" />
+                    {isImg ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={m.url} alt={mediaLabel(m)} className="size-full object-cover bg-ink-100 dark:bg-ink-800" />
+                    ) : (
+                      <div className="size-full bg-ink-100 dark:bg-ink-800 grid place-items-center text-ink-500 dark:text-ink-300 p-2 text-center">
+                        {m.kind === 'video' ? <Film className="size-8" /> : m.kind === 'link' ? <LinkIcon className="size-8" /> : <FileText className="size-8" />}
+                        <div className="mt-1 text-[10px] line-clamp-2 break-all">{mediaLabel(m)}</div>
+                      </div>
+                    )}
                     <div className="absolute inset-x-0 bottom-0 px-1.5 py-1 bg-gradient-to-t from-black/70 to-transparent text-[10px] text-white text-left flex items-center justify-between">
                       <span className="capitalize">{m.kind}</span>
+                      {m.size ? <span className="opacity-80">{formatBytes(m.size)}</span> : null}
                     </div>
                     {isSel && (
                       <div className="absolute top-1 right-1 size-5 rounded-full bg-brand-600 text-white grid place-items-center shadow">

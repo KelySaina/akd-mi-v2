@@ -40,7 +40,11 @@ const ContactBody = z.object({
 const MediaBody = z.object({
     kind: z.string().min(1),
     url: z.string().url(),
+    title: z.string().optional().nullable(),
     caption: z.string().optional().nullable(),
+    filename: z.string().optional().nullable(),
+    mimeType: z.string().optional().nullable(),
+    size: z.number().int().nonnegative().optional().nullable(),
     sortOrder: z.number().int().optional(),
 });
 

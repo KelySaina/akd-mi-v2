@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { LayoutDashboard, BookOpen, Award, UserCog } from 'lucide-react';
-import { useAuth, canAccess, homeForRole } from '@/lib/auth';
+import { useAuth, canAccessArea, homeForRole } from '@/lib/auth';
 import { RoleSidebar, RoleNavItem } from '@/components/RoleSidebar';
 
 const nav: RoleNavItem[] = [
@@ -23,7 +23,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
       router.replace(`/login?returnTo=${encodeURIComponent(pathname || '/student')}`);
       return;
     }
-    if (!canAccess(user.role, 'student')) router.replace(homeForRole(user.role));
+    if (!canAccessArea(user, 'student')) router.replace(homeForRole(user.role));
   }, [loaded, user, router, pathname]);
 
   if (!loaded) {
@@ -33,7 +33,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
       </div>
     );
   }
-  if (!user || !canAccess(user.role, 'student')) return null;
+  if (!user || !canAccessArea(user, 'student')) return null;
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-ink-50 dark:bg-ink-950 text-ink-900 dark:text-ink-100">

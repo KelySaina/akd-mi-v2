@@ -117,6 +117,10 @@ function LoginInner() {
             <Link href="/register" className="text-brand-700 font-medium hover:underline">
               Register
             </Link>
+            {' · '}
+            <Link href="/forgot-password" className="text-brand-700 font-medium hover:underline">
+              Forgot password?
+            </Link>
           </p>
         </div>
       </div>

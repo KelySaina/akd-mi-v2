@@ -28,6 +28,7 @@ model User {
   passwordHash  String
   name          String
   role          Role     @default(STUDENT)
+  extraRoles    Role[]   @default([])
   avatarUrl     String?
   phone         String?
   isActive      Boolean  @default(true)
@@ -39,6 +40,7 @@ model User {
   sessions       Session[]
   teacherProfile Teacher?
   studentProfile Student?
+  passwordResets PasswordResetRequest[]
 
   @@index([role])
 }
@@ -56,6 +58,26 @@ model Session {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+/// Password reset requests — covers two flows:
+///  • token-based: user clicks "forgot password" on login → token emailed (or surfaced to admin)
+///  • admin-fulfilled: authed user (or admin on user's behalf) requests admin to regenerate
+model PasswordResetRequest {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      String   @default("pending") // pending | fulfilled | rejected | expired
+  source      String   @default("admin")   // "self" | "forgot" | "admin"
+  tokenHash   String?  @unique             // only set for token-based forgot-password
+  expiresAt   DateTime?
+  reason      String?                      // user-supplied note
+  createdAt   DateTime @default(now())
+  fulfilledAt DateTime?
+  fulfilledById String?
+
+  @@index([userId])
+  @@index([status])
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -124,11 +146,17 @@ model InstitutionMedia {
   id            String   @id @default(cuid())
   institutionId String
   institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
-  kind          String   // logo, cover, gallery
+  kind          String   // logo, cover, gallery, document, video, other
   url           String
+  title         String?
   caption       String?
+  filename      String?
+  mimeType      String?
+  size          Int?
   sortOrder     Int      @default(0)
   createdAt     DateTime @default(now())
+
+  courseAttachments CourseAttachment[]
 }
 
 model InstitutionDocument {
@@ -182,6 +210,8 @@ model Course {
   id          String   @id @default(cuid())
   programId   String?
   program     Program? @relation(fields: [programId], references: [id], onDelete: SetNull)
+  teacherId   String?
+  teacher     Teacher? @relation("CourseTeacher", fields: [teacherId], references: [id], onDelete: SetNull)
   code        String   @unique
   title       String
   description String?
@@ -191,6 +221,21 @@ model Course {
   updatedAt   DateTime @updatedAt
 
   enrollments Enrollment[]
+  attachments CourseAttachment[]
+}
+
+model CourseAttachment {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  mediaId   String
+  media     InstitutionMedia @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([courseId, mediaId])
+  @@index([courseId])
+  @@index([mediaId])
 }
 
 model Teacher {
@@ -205,6 +250,7 @@ model Teacher {
   updatedAt   DateTime @updatedAt
 
   enrollments Enrollment[]
+  courses     Course[]     @relation("CourseTeacher")
 }
 
 model Student {

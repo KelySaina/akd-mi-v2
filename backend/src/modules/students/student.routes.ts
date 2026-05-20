@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../../config/prisma.js';
-import { authenticate, requireRole } from '../../common/auth.js';
+import { authenticate, requireRole, hasRole } from '../../common/auth.js';
 import { PaginationQuery, skipTake } from '../../common/pagination.js';
 import { handleError } from '../../common/errors.js';
 import { hashPassword } from '../auth/auth.service.js';
@@ -111,8 +111,8 @@ export async function studentRoutes(app: FastifyInstance) {
 
     app.get('/:id', async (req, reply) => {
         const { id } = req.params as { id: string };
-        // STUDENT can only read their own record
-        if (req.user!.role === 'STUDENT') {
+        // STUDENTs without admin/manager privileges can only read their own record
+        if (!hasRole(req.user, 'INSTANCE_ADMIN', 'MANAGER', 'TEACHER') && hasRole(req.user, 'STUDENT')) {
             const self = await prisma.student.findUnique({ where: { userId: req.user!.sub }, select: { id: true } });
             if (!self || self.id !== id) return reply.code(403).send({ error: 'Forbidden' });
         }

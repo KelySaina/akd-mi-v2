@@ -5,6 +5,7 @@ import { Search, Filter } from 'lucide-react';
 import { Topbar, PrimaryButton } from '@/components/Topbar';
 import { DataTable, Avatar, Badge } from '@/components/DataTable';
 import { Modal, TextInput, Button } from '@/components/ui';
+import { PasswordReveal } from '@/components/PasswordReveal';
 import { api } from '@/lib/api';
 
 type Student = {
@@ -176,7 +177,7 @@ export default function StudentsPage() {
 
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => { if (!generatedPassword) setOpen(false); }}
         title={generatedPassword ? 'Student created' : 'Create student'}
         footer={
           generatedPassword ? (
@@ -190,10 +191,7 @@ export default function StudentsPage() {
         }
       >
         {generatedPassword ? (
-          <div className="space-y-3">
-            <p className="text-sm">Initial password (shown once — copy it now):</p>
-            <code className="block px-3 py-2 bg-ink-100 dark:bg-ink-800 text-ink-900 dark:text-ink-100 rounded-lg font-mono text-sm">{generatedPassword}</code>
-          </div>
+          <PasswordReveal password={generatedPassword} />
         ) : (
           <form id="student-form" onSubmit={create} className="space-y-4">
             <TextInput label="Full name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} required />

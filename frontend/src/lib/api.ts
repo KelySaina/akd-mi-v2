@@ -19,7 +19,9 @@ function redirectToLogin() {
 }
 
 async function request<T = any>(method: string, path: string, body?: unknown): Promise<T> {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const hasBody = body !== undefined && body !== null;
+    const headers: Record<string, string> = {};
+    if (hasBody) headers['Content-Type'] = 'application/json';
     if (typeof window !== 'undefined') {
         const token = localStorage.getItem('access_token');
         if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -27,7 +29,7 @@ async function request<T = any>(method: string, path: string, body?: unknown): P
     const res = await fetch(`${BASE}/api/v1${path}`, {
         method,
         headers,
-        body: body ? JSON.stringify(body) : undefined,
+        body: hasBody ? JSON.stringify(body) : undefined,
         credentials: 'include',
     });
 

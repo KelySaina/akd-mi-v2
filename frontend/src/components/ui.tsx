@@ -3,8 +3,11 @@ import { ReactNode, useEffect } from 'react';
 import { X } from 'lucide-react';
 
 export function Modal({
-  open, onClose, title, children, footer,
-}: { open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode }) {
+  open, onClose, title, children, footer, size = 'md',
+}: {
+  open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode;
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
+}) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -13,10 +16,14 @@ export function Modal({
   }, [open, onClose]);
 
   if (!open) return null;
+  const maxW = {
+    sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl',
+    xl: 'max-w-3xl', '2xl': 'max-w-4xl', '3xl': 'max-w-5xl', '4xl': 'max-w-6xl',
+  }[size];
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-ink-900/40 dark:bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-lg bg-white dark:bg-ink-900 rounded-2xl shadow-2xl border border-ink-200 dark:border-ink-800 overflow-hidden animate-in fade-in zoom-in-95"
+        className={`w-full ${maxW} bg-white dark:bg-ink-900 rounded-2xl shadow-2xl border border-ink-200 dark:border-ink-800 overflow-hidden animate-in fade-in zoom-in-95`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 py-4 flex items-center justify-between border-b border-ink-200 dark:border-ink-800">
@@ -44,6 +51,34 @@ export function TextInput({
         onChange={(e) => onChange(e.target.value)}
         className="mt-1 w-full px-3 py-2 rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 text-ink-900 dark:text-ink-100 placeholder:text-ink-400 dark:placeholder:text-ink-500 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200 dark:focus:ring-brand-500/30 transition"
       />
+    </label>
+  );
+}
+
+export function SelectInput({
+  label, value, onChange, options, required, placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  required?: boolean;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-medium text-ink-700 dark:text-ink-200">{label}{required && <span className="text-rose-500"> *</span>}</span>
+      <select
+        value={value}
+        required={required}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1 w-full px-3 py-2 rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 text-ink-900 dark:text-ink-100 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200 dark:focus:ring-brand-500/30 transition"
+      >
+        {placeholder !== undefined && <option value="">{placeholder}</option>}
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
     </label>
   );
 }

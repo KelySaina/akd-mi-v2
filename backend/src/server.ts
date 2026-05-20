@@ -21,6 +21,8 @@ import { teacherRoutes } from './modules/teachers/teacher.routes.js';
 import { enrollmentRoutes } from './modules/enrollments/enrollment.routes.js';
 import { gradeRoutes } from './modules/grades/grade.routes.js';
 import { storageRoutes } from './modules/storage/storage.routes.js';
+import { passwordResetRoutes, forgotPasswordRoutes } from './modules/password-resets/password-reset.routes.js';
+import { notificationRoutes } from './modules/notifications/notification.routes.js';
 
 export async function buildApp() {
     const env = loadEnv();
@@ -66,6 +68,7 @@ export async function buildApp() {
 
     // Routes
     await app.register(authRoutes,        { prefix: '/api/v1/auth' });
+    await app.register(forgotPasswordRoutes, { prefix: '/api/v1/auth' });
     await app.register(userRoutes,        { prefix: '/api/v1/users' });
     await app.register(institutionRoutes, { prefix: '/api/v1/institution' });
     await app.register(moduleRoutes,      { prefix: '/api/v1/modules' });
@@ -75,6 +78,8 @@ export async function buildApp() {
     await app.register(enrollmentRoutes,  { prefix: '/api/v1/enrollments' });
     await app.register(gradeRoutes,       { prefix: '/api/v1/grades' });
     await app.register(storageRoutes,     { prefix: '/api/v1/storage' });
+    await app.register(passwordResetRoutes, { prefix: '/api/v1/password-resets' });
+    await app.register(notificationRoutes, { prefix: '/api/v1/notifications' });
 
     await connectDb();
     try { await ensureBucket(); }
