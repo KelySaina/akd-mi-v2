@@ -126,12 +126,20 @@ jobs:
       - name: Run portal migrations
         working-directory: ${{ env.DEPLOY_DIR }}/portal
         run: |
-          # Wait briefly for portal-web to be ready, then run prisma against the DB.
+          # Wait briefly for portal-web to be ready, then sync the schema.
           # The runtime image doesn't ship the Prisma CLI, so npx downloads it.
           # Pin to v6 because the schema still uses `datasource.url` (v7 dropped it).
           sleep 5
-          docker compose exec -T portal-web npx -y prisma@6 migrate deploy \
-            || docker compose exec -T portal-web npx -y prisma@6 db push --accept-data-loss
+          # If a prisma/migrations folder exists, prefer `migrate deploy`. Otherwise
+          # (and as a fallback) run `db push` so a fresh DB still gets the schema —
+          # `migrate deploy` exits 0 with no migrations, which would otherwise leave
+          # the database empty and break the app at runtime.
+          if [ -d prisma/migrations ] && [ -n "$(ls -A prisma/migrations 2>/dev/null)" ]; then
+            docker compose exec -T portal-web npx -y prisma@6 migrate deploy
+          else
+            echo "::notice ::No prisma/migrations folder — falling back to 'prisma db push'."
+            docker compose exec -T portal-web npx -y prisma@6 db push --accept-data-loss
+          fi
 
       - name: Show portal status
         working-directory: ${{ env.DEPLOY_DIR }}/portal
