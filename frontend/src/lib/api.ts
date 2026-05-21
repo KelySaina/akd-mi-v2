@@ -1,5 +1,25 @@
 // Lightweight API client. Pulls token from localStorage and auto-redirects to /login on 401.
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
+const ENV_BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
+
+// Resolve API base at call time. In the browser, if the configured URL points at
+// `localhost` but the page is being served from a different host (e.g. the WSL IP
+// or a LAN address), swap the hostname so fetch targets the same host the user
+// is actually on. Server-side rendering keeps the env value as-is.
+function resolveBase(): string {
+    if (typeof window === 'undefined') return ENV_BASE;
+    if (!ENV_BASE) return '';
+    try {
+        const u = new URL(ENV_BASE);
+        const pageHost = window.location.hostname;
+        if ((u.hostname === 'localhost' || u.hostname === '127.0.0.1') && pageHost && pageHost !== u.hostname) {
+            u.hostname = pageHost;
+            return u.toString().replace(/\/$/, '');
+        }
+        return ENV_BASE;
+    } catch {
+        return ENV_BASE;
+    }
+}
 
 function isSafeReturnTo(path: string) {
     return path.startsWith('/') && !path.startsWith('//');
@@ -26,7 +46,7 @@ async function request<T = any>(method: string, path: string, body?: unknown): P
         const token = localStorage.getItem('access_token');
         if (token) headers['Authorization'] = `Bearer ${token}`;
     }
-    const res = await fetch(`${BASE}/api/v1${path}`, {
+    const res = await fetch(`${resolveBase()}/api/v1${path}`, {
         method,
         headers,
         body: hasBody ? JSON.stringify(body) : undefined,
@@ -68,7 +88,7 @@ export async function uploadFile(file: File): Promise<{ key: string; url: string
     }
     const fd = new FormData();
     fd.append('file', file, file.name);
-    const res = await fetch(`${BASE}/api/v1/storage/upload`, { method: 'POST', headers, body: fd, credentials: 'include' });
+    const res = await fetch(`${resolveBase()}/api/v1/storage/upload`, { method: 'POST', headers, body: fd, credentials: 'include' });
     if (res.status === 401) {
         redirectToLogin();
         throw new Error('Unauthorized');

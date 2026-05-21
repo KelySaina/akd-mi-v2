@@ -5,9 +5,10 @@ import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen,
   Calendar, FileBarChart, Settings, ChevronRight, ChevronDown,
-  Image as ImageIcon, ClipboardList, KeyRound,
+  Image as ImageIcon, ClipboardList, KeyRound, LogOut,
 } from 'lucide-react';
 import { MobileSidebarShell } from './MobileSidebarShell';
+import { useAuth } from '@/lib/auth';
 
 type NavItem = { href: string; label: string; icon: typeof LayoutDashboard };
 type NavGroup = { id: string; label: string; items: NavItem[] };
@@ -170,9 +171,32 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
 
 function SidebarFooter() {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
   return (
-    <div className="p-3 border-t border-ink-200 dark:border-ink-800">
+    <div className="p-3 border-t border-ink-200 dark:border-ink-800 space-y-1">
       <NavLink item={settingsItem} pathname={pathname} />
+      {user && (
+        <div className="mt-2 flex items-center gap-3 px-3 py-2">
+          <div className="size-8 rounded-full bg-grad-brand text-white grid place-items-center text-xs font-semibold overflow-hidden">
+            {user.avatarUrl
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={user.avatarUrl} alt={user.name} className="size-full object-cover" />
+              : user.name?.slice(0, 1)?.toUpperCase() ?? '·'}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate">{user.name}</div>
+            <div className="text-xs text-ink-500 dark:text-ink-400 truncate">{user.email}</div>
+          </div>
+          <button
+            onClick={logout}
+            className="p-1.5 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 text-ink-500 dark:text-ink-400"
+            title="Sign out"
+            aria-label="Sign out"
+          >
+            <LogOut className="size-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

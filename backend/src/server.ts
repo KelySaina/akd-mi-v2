@@ -38,7 +38,19 @@ export async function buildApp() {
 
     await app.register(helmet, { contentSecurityPolicy: false });
     await app.register(cors, {
-        origin: [env.PUBLIC_WEB_URL],
+        origin: (origin, cb) => {
+            // No Origin header (curl, server-side, same-origin) → allow.
+            if (!origin) return cb(null, true);
+            // Always allow the configured public web URL.
+            if (origin === env.PUBLIC_WEB_URL) return cb(null, true);
+            // Also allow any host on the same port as PUBLIC_WEB_URL (LAN IPs, WSL IP, alt hostnames).
+            try {
+                const cfg = new URL(env.PUBLIC_WEB_URL);
+                const o = new URL(origin);
+                if (o.port === cfg.port) return cb(null, true);
+            } catch { /* ignore parse errors */ }
+            return cb(new Error('CORS: origin not allowed'), false);
+        },
         credentials: true,
     });
     await app.register(cookie, { secret: env.SESSION_SECRET });
