@@ -17,6 +17,11 @@ FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
+# bash + docker CLI + compose plugin are needed at runtime because the admin
+# routes shell out to the akd-mi script which is a bash program that drives
+# `docker compose`. The docker socket is bind-mounted from the host (see
+# docker-compose.yml) so we use the host's daemon — we don't run docker inside.
+RUN apk add --no-cache bash docker-cli docker-cli-compose openssl
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
