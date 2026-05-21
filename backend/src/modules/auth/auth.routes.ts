@@ -20,12 +20,6 @@ const LoginBody = z.object({
     password: z.string().min(1),
 });
 
-const RegisterBody = z.object({
-    email: z.string().email(),
-    password: z.string().min(8),
-    name: z.string().min(1),
-});
-
 const UpdateMeBody = z.object({
     name: z.string().min(1).optional(),
     phone: z.string().optional().nullable(),
@@ -79,22 +73,7 @@ export async function authRoutes(app: FastifyInstance) {
         }
     });
 
-    // Public self-registration as STUDENT — admins can later promote
-    app.post('/register', async (req, reply) => {
-        try {
-            const body = RegisterBody.parse(req.body);
-            const exists = await prisma.user.findUnique({ where: { email: body.email } });
-            if (exists) return reply.code(409).send({ error: 'EmailTaken' });
-
-            const passwordHash = await hashPassword(body.password);
-            const user = await prisma.user.create({
-                data: { email: body.email, name: body.name, passwordHash, role: 'STUDENT' },
-            });
-            return reply.code(201).send({ id: user.id, email: user.email, name: user.name, role: user.role });
-        } catch (err) {
-            return handleError(reply, err);
-        }
-    });
+    // Public self-registration is disabled — admins create user accounts.
 
     app.post('/refresh', async (req, reply) => {
         try {
