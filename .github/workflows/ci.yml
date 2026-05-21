@@ -7,46 +7,78 @@ on:
     branches: [main]
 
 jobs:
-  build-and-test:
+  # Detect which top-level directories changed so each job below only runs when
+  # its own files were touched (or the workflow file itself was edited).
+  changes:
+    runs-on: [self-hosted, linux, akd-mi]
+    outputs:
+      backend:  ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      portal:   ${{ steps.filter.outputs.portal }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/ci.yml'
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/ci.yml'
+            portal:
+              - 'portal/**'
+              - 'docker-compose.yml'
+              - 'scripts/**'
+              - 'akd-mi'
+              - 'templates/**'
+              - '.github/workflows/ci.yml'
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: [self-hosted, linux, akd-mi]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: |
-            backend/package-lock.json
-            frontend/package-lock.json
-
-      - name: Backend — install
+          cache-dependency-path: backend/package-lock.json
+      - name: Install
         working-directory: backend
         run: npm ci
-
-      - name: Backend — prisma generate
+      - name: Prisma generate
         working-directory: backend
         run: npx prisma generate
-
-      - name: Backend — typecheck/build
+      - name: Typecheck/build
         working-directory: backend
         run: npm run build
 
-      - name: Frontend — install
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: [self-hosted, linux, akd-mi]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
         working-directory: frontend
         run: npm ci
-
-      - name: Frontend — build
+      - name: Build
         working-directory: frontend
         env:
           NEXT_PUBLIC_API_URL: http://localhost:4100
         run: npm run build
 
   deploy-portal:
-    needs: build-and-test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: changes
+    if: needs.changes.outputs.portal == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: [self-hosted, linux, akd-mi]
     concurrency:
       group: deploy-portal
