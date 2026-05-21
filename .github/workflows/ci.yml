@@ -43,3 +43,62 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:4100
         run: npm run build
+
+  deploy-portal:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: [self-hosted, linux, akd-mi]
+    concurrency:
+      group: deploy-portal
+      cancel-in-progress: false
+    env:
+      DEPLOY_DIR: /opt/akd-mi-v2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure deploy dir exists and is writable
+        run: |
+          if [ ! -d "$DEPLOY_DIR" ]; then
+            sudo install -d -o "$USER" -g "$USER" "$DEPLOY_DIR"
+          fi
+          # If a previous run created it as root, take ownership once.
+          if [ ! -w "$DEPLOY_DIR" ]; then
+            sudo chown -R "$USER:$USER" "$DEPLOY_DIR"
+          fi
+
+      - name: Sync repo to deploy dir
+        run: |
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude '.next' \
+            --exclude 'instances/*/data' \
+            --exclude 'portal/.env' \
+            ./ "$DEPLOY_DIR/"
+
+      - name: Seed portal/.env on first deploy
+        run: |
+          cd "$DEPLOY_DIR/portal"
+          if [ ! -f .env ]; then
+            cp .env.example .env
+            echo "::warning ::portal/.env was missing — created from .env.example. Edit it on the server at $DEPLOY_DIR/portal/.env and re-run the deploy."
+          fi
+
+      - name: Rebuild & restart portal stack
+        working-directory: ${{ env.DEPLOY_DIR }}/portal
+        run: |
+          docker compose pull --ignore-pull-failures || true
+          docker compose up -d --build portal-db portal-web
+
+      - name: Run portal migrations
+        working-directory: ${{ env.DEPLOY_DIR }}/portal
+        run: |
+          # Wait briefly for portal-web to be ready, then run prisma against the DB.
+          sleep 5
+          docker compose exec -T portal-web npx prisma migrate deploy \
+            || docker compose exec -T portal-web npx prisma db push
+
+      - name: Show portal status
+        working-directory: ${{ env.DEPLOY_DIR }}/portal
+        run: docker compose ps
