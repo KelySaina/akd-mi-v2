@@ -139,7 +139,9 @@ async function runJob(job: Job, opts: CreateJobOpts): Promise<void> {
 
     try {
         for (let i = 0; i < job.steps.length; i++) {
-            if (job.status === 'canceled') break;
+            // job.status can be mutated to 'canceled' by cancelJob() while we await;
+            // cast to widen the TS-narrowed 'running' literal type.
+            if ((job.status as JobStatus) === 'canceled') break;
             job.currentStep = i;
             const args = job.steps[i];
             pushLine(job, 'sys', `── step ${i + 1}/${job.steps.length}: akd-mi ${args.join(' ')} ──`);
@@ -154,7 +156,7 @@ async function runJob(job: Job, opts: CreateJobOpts): Promise<void> {
             }
         }
 
-        if (job.status === 'running') {
+        if ((job.status as JobStatus) === 'running') {
             job.status = 'succeeded';
             job.exitCode = 0;
             pushLine(job, 'sys', `── done in ${Math.round((Date.now() - job.startedAt) / 1000)}s ──`);
