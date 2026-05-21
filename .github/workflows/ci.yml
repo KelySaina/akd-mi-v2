@@ -101,11 +101,16 @@ jobs:
 
       - name: Sync repo to deploy dir
         run: |
+          # NOTE: 'instances/' is excluded entirely. It is a runtime-managed
+          # directory: the portal container (running as root) creates per-tenant
+          # subfolders, .env files, nginx configs, backups, etc. The runner user
+          # can't delete those, so letting rsync --delete touch the tree fails
+          # with EACCES. Treat the deployed instances/ as state, not as code.
           rsync -a --delete \
             --exclude '.git' \
             --exclude 'node_modules' \
             --exclude '.next' \
-            --exclude 'instances/*/data' \
+            --exclude 'instances' \
             --exclude 'portal/.env' \
             ./ "$DEPLOY_DIR/"
 
