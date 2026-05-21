@@ -1,0 +1,39 @@
+# Default: let Git auto-detect, but never CRLF-ify text it doesn't recognize.
+* text=auto eol=lf
+
+# Shell scripts MUST stay LF. CRLF makes bash fail with
+#   "set: pipefail\r: invalid option name"
+# even when the script is just sourced.
+*.sh         text eol=lf
+*.bash       text eol=lf
+
+# The akd-mi CLI is a bash script with no extension.
+akd-mi       text eol=lf
+dbserver     text eol=lf
+ocompose     text eol=lf
+
+# YAML/JSON/Dockerfile/env — keep LF too (compose & docker CLI tolerate CRLF
+# but it breaks heredocs and shell substitutions in entrypoints).
+*.yml        text eol=lf
+*.yaml       text eol=lf
+*.json       text eol=lf
+*.env        text eol=lf
+Dockerfile   text eol=lf
+*.Dockerfile text eol=lf
+
+# Windows-only files stay CRLF.
+*.cmd        text eol=crlf
+*.bat        text eol=crlf
+*.ps1        text eol=crlf
+
+# Binary types — never touch.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary
+*.tgz   binary
+*.lockb binary

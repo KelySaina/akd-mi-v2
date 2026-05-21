@@ -109,6 +109,18 @@ jobs:
             --exclude 'portal/.env' \
             ./ "$DEPLOY_DIR/"
 
+      - name: Normalize line endings on shell scripts
+        run: |
+          # Defensive: even with .gitattributes, a contributor on Windows may
+          # commit CRLF. Bash refuses to parse CRLF (`set: pipefail\r: invalid
+          # option name`), so strip CR from every script before we shell out.
+          find "$DEPLOY_DIR" -type f \
+            \( -name '*.sh' -o -name 'akd-mi' -o -name 'dbserver' -o -name 'ocompose' \) \
+            -not -path '*/node_modules/*' -not -path '*/.next/*' \
+            -exec sed -i 's/\r$//' {} +
+          chmod +x "$DEPLOY_DIR/akd-mi" 2>/dev/null || true
+          find "$DEPLOY_DIR/scripts" -type f -name '*.sh' -exec chmod +x {} + 2>/dev/null || true
+
       - name: Seed portal/.env on first deploy
         run: |
           cd "$DEPLOY_DIR/portal"
