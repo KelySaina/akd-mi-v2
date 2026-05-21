@@ -1,15 +1,13 @@
 'use client';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PageHeader, Button } from '@/components/AdminShell';
 import { JobRunner, type JobSnapshot } from '@/components/JobRunner';
-import { ArrowLeft, Sparkles, KeyRound, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Sparkles, KeyRound, Copy, Check, Info, ListChecks } from 'lucide-react';
 
 type Category = { code: string; label: string };
 
 export default function NewInstancePage() {
-    const router = useRouter();
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [jobId, setJobId] = useState<string | null>(null);
@@ -34,7 +32,7 @@ export default function NewInstancePage() {
                 if (items.length && !items.some((c) => c.code === form.category)) {
                     setForm((f) => ({ ...f, category: items[0].code }));
                 }
-            } catch { /* ignore — the select will fall back to free text via the default option */ }
+            } catch { /* ignore — select falls back to the seeded default */ }
         })();
         return () => { cancel = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -108,87 +106,158 @@ export default function NewInstancePage() {
         );
     }
 
+    const canSubmit = !busy && !!form.slug && !!form.name;
+
     return (
         <>
             <PageHeader
                 title="New instance"
                 action={<Link href="/admin/instances"><Button variant="ghost"><ArrowLeft className="size-4" /> Back</Button></Link>}
             />
-            <form onSubmit={submit} className="p-6 max-w-3xl space-y-6">
-                <section className="card p-5 space-y-4">
-                    <h2 className="font-semibold">Identity</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FieldInput label="Slug" required value={form.slug} onChange={(v) => setForm({ ...form, slug: v })} placeholder="paris-tech" hint="Lowercase letters, digits, dashes. 3–32 chars." disabled={!!jobId} />
-                        <FieldInput label="Name" required value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="Paris Tech Institute" disabled={!!jobId} />
-                        <label className="block">
-                            <span className="block text-xs muted mb-1">Category</span>
-                            <select
-                                value={form.category}
-                                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                                disabled={!!jobId}
-                                className="w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 text-sm disabled:opacity-60"
-                            >
-                                {categories.length === 0
-                                    ? <option value={form.category}>{form.category}</option>
-                                    : categories.map((c) => (
-                                        <option key={c.code} value={c.code}>{c.label}</option>
-                                    ))}
-                            </select>
-                        </label>
-                        <label className="flex items-end gap-2 text-sm">
-                            <input type="checkbox" checked={form.isPublished} onChange={(e) => setForm({ ...form, isPublished: e.target.checked })} disabled={!!jobId} />
-                            <span>Publish in public directory</span>
-                        </label>
-                    </div>
-                </section>
 
-                <section className="card p-5 space-y-4">
-                    <h2 className="font-semibold">Location & description</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FieldInput label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} disabled={!!jobId} />
-                        <FieldInput label="Country" value={form.country} onChange={(v) => setForm({ ...form, country: v })} disabled={!!jobId} />
-                    </div>
-                    <div>
-                        <div className="text-xs muted mb-1">Description</div>
-                        <textarea
-                            value={form.description}
-                            onChange={(e) => setForm({ ...form, description: e.target.value })}
-                            rows={3}
-                            disabled={!!jobId}
-                            className="w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 text-sm disabled:opacity-60"
-                        />
-                    </div>
-                </section>
+            <div className="page-fit p-4 lg:p-6 gap-4 lg:gap-6 grid grid-cols-1 lg:grid-cols-2">
+                {/* ── LEFT: Form ──────────────────────────────────────────── */}
+                <form onSubmit={submit} className="scroll-card card">
+                    <header className="px-5 py-3 border-b border-[var(--border)] flex items-center justify-between">
+                        <h2 className="font-semibold">Configuration</h2>
+                        <span className="text-xs muted">Fill in identity &amp; metadata</span>
+                    </header>
 
-                {error && <div className="card p-3 text-sm text-rose-600 border-rose-300 whitespace-pre-wrap">{error}</div>}
+                    <div className="scroll-card-body p-5 space-y-6">
+                        <section className="space-y-3">
+                            <SectionTitle>Identity</SectionTitle>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <FieldInput
+                                    label="Slug" required value={form.slug}
+                                    onChange={(v) => setForm({ ...form, slug: v })}
+                                    placeholder="paris-tech"
+                                    hint="Lowercase letters, digits, dashes. 3–32 chars."
+                                    disabled={!!jobId}
+                                />
+                                <FieldInput
+                                    label="Name" required value={form.name}
+                                    onChange={(v) => setForm({ ...form, name: v })}
+                                    placeholder="Paris Tech Institute"
+                                    disabled={!!jobId}
+                                />
+                                <label className="block">
+                                    <span className="block text-xs muted mb-1">Category</span>
+                                    <select
+                                        value={form.category}
+                                        onChange={(e) => setForm({ ...form, category: e.target.value })}
+                                        disabled={!!jobId}
+                                        className="w-full h-[38px] rounded-lg border border-[var(--border)] bg-[var(--panel)] text-[var(--ink)] px-3 outline-none focus:ring-2 focus:ring-indigo-500 text-sm disabled:opacity-60"
+                                    >
+                                        {categories.length === 0
+                                            ? <option value={form.category}>{form.category}</option>
+                                            : categories.map((c) => (
+                                                <option key={c.code} value={c.code}>{c.label}</option>
+                                            ))}
+                                    </select>
+                                </label>
+                                <div className="block">
+                                    <span className="block text-xs muted mb-1">Visibility</span>
+                                    <label className="h-[38px] flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 bg-[var(--panel)] cursor-pointer">
+                                        <span className="text-sm">Publish in public directory</span>
+                                        <Toggle
+                                            checked={form.isPublished}
+                                            onChange={(v) => setForm({ ...form, isPublished: v })}
+                                            disabled={!!jobId}
+                                        />
+                                    </label>
+                                </div>
+                            </div>
+                        </section>
 
-                {!jobId && (
-                    <div className="flex items-center gap-3">
-                        <Button type="submit" disabled={busy || !form.slug || !form.name}>
-                            {busy ? 'Starting…' : 'Create & start'}
-                        </Button>
-                        <Link href="/admin/instances"><Button variant="ghost" type="button">Cancel</Button></Link>
-                        <span className="text-xs muted">Runs <code>akd-mi init → up → seed</code>. Live progress appears below.</span>
-                    </div>
-                )}
+                        <section className="space-y-3">
+                            <SectionTitle>Location &amp; description</SectionTitle>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <FieldInput label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} disabled={!!jobId} />
+                                <FieldInput label="Country" value={form.country} onChange={(v) => setForm({ ...form, country: v })} disabled={!!jobId} />
+                            </div>
+                            <label className="block">
+                                <span className="block text-xs muted mb-1">Description</span>
+                                <textarea
+                                    value={form.description}
+                                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                                    rows={3}
+                                    disabled={!!jobId}
+                                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--panel)] text-[var(--ink)] px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 text-sm disabled:opacity-60"
+                                />
+                            </label>
+                        </section>
 
-                {jobId && (
-                    <section className="space-y-3">
-                        <h2 className="font-semibold">Provisioning {form.slug}</h2>
-                        <JobRunner jobId={jobId} onDone={onJobDone} />
-                        {jobDone && jobDone.status !== 'succeeded' && (
-                            <div className="flex items-center gap-3">
-                                <Button type="button" variant="outline" onClick={() => { setJobId(null); setJobDone(null); setError(null); }}>
-                                    Try again
-                                </Button>
-                                <Link href="/admin/instances"><Button variant="ghost" type="button">Back to list</Button></Link>
+                        {error && (
+                            <div className="text-sm text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-lg px-3 py-2 whitespace-pre-wrap">
+                                {error}
                             </div>
                         )}
-                    </section>
-                )}
-            </form>
+                    </div>
+
+                    <footer className="px-5 py-3 border-t border-[var(--border)] flex items-center justify-between gap-3 bg-[var(--panel)]">
+                        <span className="text-xs muted">
+                            Runs <code className="text-[var(--ink)]">akd-mi init → up → seed</code>
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <Link href="/admin/instances"><Button variant="ghost" type="button">Cancel</Button></Link>
+                            {!jobId
+                                ? <Button type="submit" disabled={!canSubmit}>{busy ? 'Starting…' : 'Create & start'}</Button>
+                                : jobDone && jobDone.status !== 'succeeded'
+                                    ? <Button type="button" variant="outline" onClick={() => { setJobId(null); setJobDone(null); setError(null); }}>Try again</Button>
+                                    : <Button type="button" disabled>Provisioning…</Button>}
+                        </div>
+                    </footer>
+                </form>
+
+                {/* ── RIGHT: Live progress / hints ─────────────────────────── */}
+                <aside className="scroll-card card">
+                    <header className="px-5 py-3 border-b border-[var(--border)] flex items-center justify-between">
+                        <h2 className="font-semibold flex items-center gap-2">
+                            {jobId
+                                ? <><ListChecks className="size-4 text-indigo-500" /> Provisioning {form.slug}</>
+                                : <><Info className="size-4 text-indigo-500" /> What will happen</>}
+                        </h2>
+                        {jobDone && (
+                            <span className={[
+                                'text-[11px] px-2 py-0.5 rounded-full font-medium',
+                                jobDone.status === 'succeeded'
+                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                                    : 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
+                            ].join(' ')}>
+                                {jobDone.status}
+                            </span>
+                        )}
+                    </header>
+
+                    <div className="scroll-card-body p-0">
+                        {jobId ? (
+                            <div className="p-4">
+                                <JobRunner jobId={jobId} onDone={onJobDone} />
+                            </div>
+                        ) : (
+                            <div className="p-5 space-y-4 text-sm">
+                                <ol className="space-y-3">
+                                    <Step n={1} title="akd-mi init"
+                                          body="Creates the instance directory, allocates a port window, and generates a random admin password and JWT secrets." />
+                                    <Step n={2} title="akd-mi up"
+                                          body="Builds (or reuses) Docker images and starts the database, Redis, MinIO, API and web containers." />
+                                    <Step n={3} title="akd-mi seed"
+                                          body="Applies the schema and seeds the initial admin account. Credentials will be shown once on the next screen." />
+                                </ol>
+                                <p className="muted text-xs">
+                                    Live progress, logs and an option to cancel will appear here once you click <b className="text-[var(--ink)]">Create &amp; start</b>.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </aside>
+            </div>
         </>
     );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+    return <h3 className="text-xs uppercase tracking-wide muted font-semibold">{children}</h3>;
 }
 
 function FieldInput({ label, value, onChange, required, placeholder, hint, disabled }: { label: string; value: string; onChange: (v: string) => void; required?: boolean; placeholder?: string; hint?: string; disabled?: boolean }) {
@@ -201,10 +270,36 @@ function FieldInput({ label, value, onChange, required, placeholder, hint, disab
                 placeholder={placeholder}
                 required={required}
                 disabled={disabled}
-                className="w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 text-sm disabled:opacity-60"
+                className="w-full h-[38px] rounded-lg border border-[var(--border)] bg-[var(--panel)] text-[var(--ink)] px-3 outline-none focus:ring-2 focus:ring-indigo-500 text-sm disabled:opacity-60"
             />
             {hint && <span className="text-[11px] muted mt-1 block">{hint}</span>}
         </label>
+    );
+}
+
+function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+    return (
+        <span className="switch" aria-label="Toggle">
+            <input
+                type="checkbox"
+                checked={checked}
+                disabled={disabled}
+                onChange={(e) => onChange(e.target.checked)}
+            />
+            <i />
+        </span>
+    );
+}
+
+function Step({ n, title, body }: { n: number; title: string; body: string }) {
+    return (
+        <li className="flex gap-3">
+            <span className="size-6 shrink-0 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300 grid place-items-center text-xs font-semibold">{n}</span>
+            <div className="min-w-0">
+                <div className="font-medium"><code className="text-[var(--ink)]">{title}</code></div>
+                <div className="text-xs muted mt-0.5">{body}</div>
+            </div>
+        </li>
     );
 }
 

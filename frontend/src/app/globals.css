@@ -149,3 +149,34 @@ body {
   from { transform: scale(0.96); opacity: 0; }
   to   { transform: scale(1);    opacity: 1; }
 }
+
+/* ── Viewport-fit page layout ────────────────────────────────────────────
+   Same pattern as the portal: use `.page-fit` on the outer wrapper to lock
+   the page to one viewport height, and `.scroll-card` (with a child
+   `.scroll-card-body`) inside it for cards that scroll on their own
+   instead of growing the page. */
+.page-fit {
+  height: calc(100dvh - var(--header-h, 64px));
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.scroll-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.scroll-card > .scroll-card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.scroll-y { overflow-y: auto; min-height: 0; }
+
+/* Native form controls follow the theme palette */
+select, option {
+  background-color: var(--surface);
+  color: var(--text);
+}
+select { color-scheme: light dark; }
