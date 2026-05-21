@@ -280,8 +280,21 @@ function EditModal({ instance, onClose, onSaved }: { instance: Instance; onClose
         logoUrl: instance.logoUrl ?? '',
         isPublished: instance.isPublished,
     });
+    const [categories, setCategories] = useState<{ code: string; label: string }[]>([]);
     const [busy, setBusy] = useState(false);
     const [err, setErr] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancel = false;
+        (async () => {
+            try {
+                const r = await fetch('/api/categories', { cache: 'no-store' });
+                const j = await r.json();
+                if (!cancel) setCategories(j.items ?? []);
+            } catch { /* ignore */ }
+        })();
+        return () => { cancel = true; };
+    }, []);
 
     async function save(e: React.FormEvent) {
         e.preventDefault();
@@ -308,7 +321,22 @@ function EditModal({ instance, onClose, onSaved }: { instance: Instance; onClose
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Inp label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-                    <Inp label="Category" value={form.category} onChange={(v) => setForm({ ...form, category: v })} />
+                    <label className="block">
+                        <span className="block text-xs muted mb-1">Category</span>
+                        <select
+                            value={form.category}
+                            onChange={(e) => setForm({ ...form, category: e.target.value })}
+                            className="w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 text-sm"
+                        >
+                            {/* always include the current value so legacy free-text categories don't disappear */}
+                            {!categories.some((c) => c.code === form.category) && (
+                                <option value={form.category}>{form.category}</option>
+                            )}
+                            {categories.map((c) => (
+                                <option key={c.code} value={c.code}>{c.label}</option>
+                            ))}
+                        </select>
+                    </label>
                     <Inp label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} />
                     <Inp label="Country" value={form.country} onChange={(v) => setForm({ ...form, country: v })} />
                     <Inp label="Logo URL" value={form.logoUrl} onChange={(v) => setForm({ ...form, logoUrl: v })} colSpan={2} />

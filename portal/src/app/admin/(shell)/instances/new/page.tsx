@@ -1,9 +1,11 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PageHeader, Button } from '@/components/AdminShell';
 import { ArrowLeft, Sparkles, KeyRound, Copy, Check } from 'lucide-react';
+
+type Category = { code: string; label: string };
 
 export default function NewInstancePage() {
     const router = useRouter();
@@ -11,10 +13,29 @@ export default function NewInstancePage() {
     const [error, setError] = useState<string | null>(null);
     const [creds, setCreds] = useState<{ slug: string; email: string; password: string } | null>(null);
     const [copied, setCopied] = useState(false);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [form, setForm] = useState({
         slug: '', name: '', category: 'SCHOOL',
         city: '', country: '', description: '', isPublished: false,
     });
+
+    useEffect(() => {
+        let cancel = false;
+        (async () => {
+            try {
+                const r = await fetch('/api/categories', { cache: 'no-store' });
+                const j = await r.json();
+                if (cancel) return;
+                const items: Category[] = j.items ?? [];
+                setCategories(items);
+                if (items.length && !items.some((c) => c.code === form.category)) {
+                    setForm((f) => ({ ...f, category: items[0].code }));
+                }
+            } catch { /* ignore — the select will fall back to free text via the default option */ }
+        })();
+        return () => { cancel = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     async function submit(e: React.FormEvent) {
         e.preventDefault();
@@ -86,7 +107,20 @@ export default function NewInstancePage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FieldInput label="Slug" required value={form.slug} onChange={(v) => setForm({ ...form, slug: v })} placeholder="paris-tech" hint="Lowercase letters, digits, dashes. 3–32 chars." />
                         <FieldInput label="Name" required value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="Paris Tech Institute" />
-                        <FieldInput label="Category" value={form.category} onChange={(v) => setForm({ ...form, category: v })} placeholder="SCHOOL" />
+                        <label className="block">
+                            <span className="block text-xs muted mb-1">Category</span>
+                            <select
+                                value={form.category}
+                                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                                className="w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                            >
+                                {categories.length === 0
+                                    ? <option value={form.category}>{form.category}</option>
+                                    : categories.map((c) => (
+                                        <option key={c.code} value={c.code}>{c.label}</option>
+                                    ))}
+                            </select>
+                        </label>
                         <label className="flex items-end gap-2 text-sm">
                             <input type="checkbox" checked={form.isPublished} onChange={(e) => setForm({ ...form, isPublished: e.target.checked })} />
                             <span>Publish in public directory</span>
