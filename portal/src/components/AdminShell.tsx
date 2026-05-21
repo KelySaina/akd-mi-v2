@@ -7,8 +7,18 @@ const NAV = [
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
     { href: '/admin/instances', label: 'Instances', icon: Server },
     { href: '/admin/instances/new', label: 'New instance', icon: Plus },
-    { href: '/', label: 'Public directory', icon: Globe2 },
+    { href: '/', label: 'Public directory', icon: Globe2, exact: true },
 ];
+
+/** Score a nav entry against the current pathname; -1 means "no match",
+ *  otherwise return href.length so the longest-matching entry wins. This
+ *  prevents `/admin/instances` from highlighting while on `/admin/instances/new`
+ *  or `/admin/instances/[slug]`, and keeps `/` from matching every route. */
+function navMatchScore(href: string, exact: boolean, pathname: string): number {
+    if (exact) return pathname === href ? href.length : -1;
+    if (pathname === href || pathname.startsWith(href + '/')) return href.length;
+    return -1;
+}
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -18,6 +28,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         router.replace('/admin/login');
         router.refresh();
     }
+    const scores = NAV.map((n) => navMatchScore(n.href, !!n.exact, pathname));
+    const bestScore = Math.max(...scores);
+    const activeIdx = bestScore >= 0 ? scores.indexOf(bestScore) : -1;
     return (
         <div className="min-h-screen flex">
             <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-[var(--border)] bg-[var(--panel)]">
@@ -29,8 +42,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                     </div>
                 </div>
                 <nav className="flex-1 px-3 py-2 space-y-1">
-                    {NAV.map((n) => {
-                        const active = n.exact ? pathname === n.href : pathname.startsWith(n.href);
+                    {NAV.map((n, i) => {
+                        const active = i === activeIdx;
                         const Icon = n.icon;
                         return (
                             <Link

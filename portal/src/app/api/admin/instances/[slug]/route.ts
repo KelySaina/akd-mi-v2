@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/admin-auth';
-import { runAkdmi, SLUG_RE } from '@/lib/akdmi';
+import { SLUG_RE } from '@/lib/akdmi';
+import { createJob, JobConflictError } from '@/lib/jobs';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     if (!SLUG_RE.test(slug)) return NextResponse.json({ error: 'invalid slug' }, { status: 400 });
     const inst = await prisma.instance.findUnique({ where: { slug } });
     if (!inst) return NextResponse.json({ error: 'NotFound' }, { status: 404 });
-    return NextResponse.json(inst);
+    return NextResponse.json({ instance: inst });
 }
 
 // PATCH /api/admin/instances/:slug — update directory metadata only (not infra)
@@ -37,13 +38,28 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ slug: 
     return NextResponse.json(inst);
 }
 
-// DELETE /api/admin/instances/:slug — destroy stack + on-disk dir, then drop row
+// DELETE /api/admin/instances/:slug — destroy stack + on-disk dir, then drop row.
+// Runs `akd-mi destroy <slug>` as an async job; the DB row is removed in the
+// job's onSuccess hook. Poll the returned jobId for progress.
 export async function DELETE(req: Request, { params }: { params: Promise<{ slug: string }> }) {
     const guard = requireAdmin(req); if (guard) return guard;
     const { slug } = await params;
     if (!SLUG_RE.test(slug)) return NextResponse.json({ error: 'invalid slug' }, { status: 400 });
-    const res = await runAkdmi(['destroy', slug], { timeoutMs: 10 * 60 * 1000 });
-    if (!res.ok) return NextResponse.json({ error: 'destroy failed', cli: res }, { status: 500 });
-    await prisma.instance.delete({ where: { slug } }).catch(() => null);
-    return NextResponse.json({ ok: true, cli: res });
+    try {
+        const job = createJob({
+            slug,
+            kind: 'destroy',
+            steps: [['destroy', slug, '--yes']],
+            timeoutMs: 10 * 60 * 1000,
+            onSuccess: async () => {
+                await prisma.instance.delete({ where: { slug } }).catch(() => null);
+            },
+        });
+        return NextResponse.json({ jobId: job.id, kind: job.kind, status: job.status }, { status: 202 });
+    } catch (e: any) {
+        if (e instanceof JobConflictError) {
+            return NextResponse.json({ error: e.message, jobId: e.existingJobId }, { status: 409 });
+        }
+        return NextResponse.json({ error: e?.message ?? 'failed to start job' }, { status: 500 });
+    }
 }

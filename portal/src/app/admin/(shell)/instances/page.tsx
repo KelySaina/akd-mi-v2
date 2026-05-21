@@ -1,8 +1,9 @@
 'use client';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageHeader, StatusBadge, Button } from '@/components/AdminShell';
+import { useConfirm, useNotify } from '@/components/Dialogs';
 import { Plus, Search, RefreshCw, Trash2, Play, Square, ExternalLink, Globe2 } from 'lucide-react';
 
 type Instance = {
@@ -20,15 +21,20 @@ type Instance = {
 
 export default function InstancesListPage() {
     const router = useRouter();
+    const confirm = useConfirm();
+    const notify = useNotify();
     const [items, setItems] = useState<Instance[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState<string | null>(null);
     const [q, setQ] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [activeJobIds, setActiveJobIds] = useState<Set<string>>(new Set());
+    const prevActiveRef = useRef<Set<string>>(new Set());
 
     const refresh = useCallback(async () => {
-        setError(null);
+        setRefreshing(true); setError(null);
         try {
             const r = await fetch('/api/admin/instances', { cache: 'no-store' });
             if (r.status === 401) { router.replace('/admin/login'); return; }
@@ -36,9 +42,35 @@ export default function InstancesListPage() {
             if (!r.ok) throw new Error(j.error ?? r.statusText);
             setItems(j.items ?? []);
         } catch (e: any) { setError(e.message); }
+        finally { setRefreshing(false); }
     }, [router]);
 
     useEffect(() => { (async () => { setLoading(true); await refresh(); setLoading(false); })(); }, [refresh]);
+
+    // Poll active jobs every 4 s. When a previously-active job disappears (i.e.
+    // finished), re-fetch the instance list so the UI reflects the new status.
+    useEffect(() => {
+        let cancelled = false;
+        const tick = async () => {
+            if (cancelled) return;
+            try {
+                const r = await fetch('/api/admin/jobs?active=1&limit=50', { cache: 'no-store' });
+                if (!r.ok) return;
+                const j = await r.json();
+                const ids = new Set<string>((j.items ?? []).map((it: any) => it.id as string));
+                const prev = prevActiveRef.current;
+                const someFinished = [...prev].some((id) => !ids.has(id));
+                prevActiveRef.current = ids;
+                if (!cancelled) {
+                    setActiveJobIds(ids);
+                    if (someFinished) await refresh();
+                }
+            } catch { /* ignore */ }
+        };
+        tick();
+        const t = setInterval(tick, 4000);
+        return () => { cancelled = true; clearInterval(t); };
+    }, [refresh]);
 
     const visible = useMemo(() => {
         const needle = q.trim().toLowerCase();
@@ -55,7 +87,16 @@ export default function InstancesListPage() {
     }, [items, q, statusFilter]);
 
     async function action(slug: string, verb: 'up' | 'down' | 'destroy') {
-        if (verb === 'destroy' && !confirm(`Destroy "${slug}"? Removes containers, volumes and on-disk directory.`)) return;
+        if (verb === 'destroy') {
+            const ok = await confirm({
+                title: `Destroy ${slug}?`,
+                message: 'Removes containers, volumes and on-disk directory. This cannot be undone.',
+                confirmText: 'Destroy',
+                variant: 'danger',
+                typeToConfirm: slug,
+            });
+            if (!ok) return;
+        }
         setBusy(`${verb}:${slug}`); setError(null);
         try {
             const r = await fetch(
@@ -63,9 +104,17 @@ export default function InstancesListPage() {
                 { method: verb === 'destroy' ? 'DELETE' : 'POST' },
             );
             const j = await r.json().catch(() => ({}));
+            // 202 = job accepted, 409 = job already running. Both should send the user
+            // to the detail page where the JobRunner auto-reattaches and streams logs.
+            if (r.status === 202 || r.status === 409) {
+                router.push(`/admin/instances/${slug}`);
+                return;
+            }
             if (!r.ok) throw new Error(j.error ?? r.statusText);
             await refresh();
-        } catch (e: any) { setError(e.message); }
+        } catch (e: any) {
+            notify('error', e.message, { title: `${verb} failed` });
+        }
         finally { setBusy(null); }
     }
 
@@ -85,10 +134,13 @@ export default function InstancesListPage() {
         <>
             <PageHeader
                 title="Instances"
-                subtitle={`${items.length} total`}
+                subtitle={`${items.length} total${activeJobIds.size ? ` · ${activeJobIds.size} job${activeJobIds.size > 1 ? 's' : ''} running` : ''}`}
                 action={
                     <div className="flex items-center gap-2">
-                        <Button variant="outline" onClick={refresh}><RefreshCw className="size-4" /> Refresh</Button>
+                        <Button variant="outline" onClick={refresh} disabled={refreshing}>
+                            <RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />
+                            {refreshing ? 'Refreshing…' : 'Refresh'}
+                        </Button>
                         <Link href="/admin/instances/new"><Button><Plus className="size-4" /> New</Button></Link>
                     </div>
                 }

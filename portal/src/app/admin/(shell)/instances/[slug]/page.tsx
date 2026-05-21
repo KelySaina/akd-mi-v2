@@ -3,9 +3,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { PageHeader, StatusBadge, Button } from '@/components/AdminShell';
+import { JobRunner, type JobSnapshot } from '@/components/JobRunner';
+import { useConfirm, useNotify } from '@/components/Dialogs';
 import {
     ArrowLeft, Play, Square, RefreshCw, Database, Sprout, HardDriveDownload, Trash2,
     Pencil, ExternalLink, ScrollText, Pause, FileTerminal, X, Save,
+    KeyRound, Eye, EyeOff, Copy, Check,
 } from 'lucide-react';
 
 type Instance = {
@@ -28,46 +31,97 @@ type Instance = {
 
 export default function InstanceDetailPage({ params }: { params: Promise<{ slug: string }> }) {
     const router = useRouter();
+    const confirm = useConfirm();
+    const notify = useNotify();
     const [slug, setSlug] = useState<string>('');
     const [instance, setInstance] = useState<Instance | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [busy, setBusy] = useState<string | null>(null);
-    const [toast, setToast] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
     const [editing, setEditing] = useState(false);
+    /** Currently-active background job (running OR most-recent completed). */
+    const [job, setJob] = useState<{ id: string; kind: string } | null>(null);
+    /** When a job is running we lock all op buttons. */
+    const [jobRunning, setJobRunning] = useState(false);
 
     useEffect(() => { params.then((p) => setSlug(p.slug)); }, [params]);
 
     const refresh = useCallback(async () => {
         if (!slug) return;
+        setRefreshing(true);
         try {
             const r = await fetch(`/api/admin/instances/${slug}`, { cache: 'no-store' });
             if (r.status === 401) { router.replace('/admin/login'); return; }
             const j = await r.json();
             if (!r.ok) throw new Error(j.error ?? r.statusText);
             setInstance(j.instance);
+            setError(null);
         } catch (e: any) { setError(e.message); }
+        finally { setRefreshing(false); }
     }, [slug, router]);
 
     useEffect(() => { refresh(); }, [refresh]);
 
+    // On mount / slug change, reattach to any in-flight job for this instance
+    // (e.g. user reloaded the page while `up` was still running).
+    useEffect(() => {
+        if (!slug) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const r = await fetch(`/api/admin/jobs?slug=${slug}&active=1&limit=1`, { cache: 'no-store' });
+                const j = await r.json();
+                if (cancelled) return;
+                const it = j.items?.[0];
+                if (it) { setJob({ id: it.id, kind: it.kind }); setJobRunning(true); }
+            } catch { /* ignore */ }
+        })();
+        return () => { cancelled = true; };
+    }, [slug]);
+
     function showToast(t: { kind: 'ok' | 'err'; msg: string }) {
-        setToast(t);
-        setTimeout(() => setToast(null), 3500);
+        notify(t.kind === 'ok' ? 'success' : 'error', t.msg);
     }
 
-    async function runAction(label: string, url: string, method: 'POST' | 'DELETE' = 'POST') {
-        setBusy(label); setError(null);
+    /** Fire-and-forget an async op: POST/DELETE, capture jobId, show JobRunner. */
+    async function startJob(label: string, url: string, method: 'POST' | 'DELETE' = 'POST') {
+        setError(null);
         try {
             const r = await fetch(url, { method });
             const j = await r.json().catch(() => ({}));
-            if (!r.ok) throw new Error(j.error ?? j.cli?.stderr ?? r.statusText);
-            showToast({ kind: 'ok', msg: `${label} OK` });
-            if (label === 'destroy') router.push('/admin/instances');
-            else await refresh();
+            if (r.status === 409 && j.jobId) {
+                // Another job is already running — attach to it instead of erroring out.
+                setJob({ id: j.jobId, kind: label });
+                setJobRunning(true);
+                showToast({ kind: 'err', msg: `Already running — attached to existing job.` });
+                return;
+            }
+            if (!r.ok || !j.jobId) throw new Error(j.error ?? r.statusText);
+            setJob({ id: j.jobId, kind: j.kind ?? label });
+            setJobRunning(true);
         } catch (e: any) {
-            showToast({ kind: 'err', msg: `${label} failed: ${e.message}` });
-        } finally { setBusy(null); }
+            showToast({ kind: 'err', msg: `${label} failed to start: ${e.message}` });
+        }
     }
+
+    /** Called by JobRunner when the job reaches a terminal state. */
+    const onJobDone = useCallback(async (snap: JobSnapshot) => {
+        setJobRunning(false);
+        const label = snap.kind;
+        if (snap.status === 'succeeded') {
+            showToast({ kind: 'ok', msg: `${label} succeeded` });
+            if (label === 'destroy') {
+                router.push('/admin/instances');
+                return;
+            }
+            await refresh();
+        } else if (snap.status === 'failed') {
+            showToast({ kind: 'err', msg: `${label} failed${snap.exitCode != null ? ` (exit ${snap.exitCode})` : ''}` });
+            await refresh();
+        } else if (snap.status === 'canceled') {
+            showToast({ kind: 'err', msg: `${label} canceled` });
+            await refresh();
+        }
+    }, [refresh, router]);
 
     if (!slug) return null;
     if (!instance && !error) return <div className="p-8 muted text-sm">Loading…</div>;
@@ -80,17 +134,13 @@ export default function InstanceDetailPage({ params }: { params: Promise<{ slug:
                 action={
                     <div className="flex items-center gap-2">
                         <Link href="/admin/instances"><Button variant="ghost"><ArrowLeft className="size-4" /> Back</Button></Link>
-                        <Button variant="outline" onClick={refresh}><RefreshCw className="size-4" /></Button>
+                        <Button variant="outline" onClick={refresh} disabled={refreshing}>
+                            <RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />
+                        </Button>
                     </div>
                 }
             />
 
-            {toast && (
-                <div className={`mx-6 mt-4 card p-3 text-sm flex items-center justify-between ${toast.kind === 'ok' ? 'border-emerald-300 bg-emerald-50/60 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' : 'border-rose-300 bg-rose-50/60 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'}`}>
-                    <span>{toast.msg}</span>
-                    <button onClick={() => setToast(null)}><X className="size-4" /></button>
-                </div>
-            )}
             {error && <div className="mx-6 mt-4 card p-3 text-sm text-rose-600 border-rose-300">{error}</div>}
 
             {instance && (
@@ -130,39 +180,59 @@ export default function InstanceDetailPage({ params }: { params: Promise<{ slug:
                             <div className="flex items-center gap-2 mb-3">
                                 <FileTerminal className="size-4" />
                                 <h3 className="font-semibold">Operations</h3>
+                                {jobRunning && <span className="text-[11px] muted">a job is running — buttons disabled</span>}
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {instance.status === 'RUNNING' ? (
-                                    <Button variant="outline" onClick={() => runAction('stop', `/api/admin/instances/${slug}/down`)} disabled={!!busy}>
-                                        <Square className="size-4" /> {busy === 'stop' ? '…' : 'Stop'}
+                                    <Button variant="outline" onClick={() => startJob('down', `/api/admin/instances/${slug}/down`)} disabled={jobRunning}>
+                                        <Square className="size-4" /> Stop
                                     </Button>
                                 ) : (
-                                    <Button onClick={() => runAction('start', `/api/admin/instances/${slug}/up`)} disabled={!!busy}>
-                                        <Play className="size-4" /> {busy === 'start' ? '…' : 'Start'}
+                                    <Button onClick={() => startJob('up', `/api/admin/instances/${slug}/up`)} disabled={jobRunning}>
+                                        <Play className="size-4" /> Start
                                     </Button>
                                 )}
-                                <Button variant="outline" onClick={() => runAction('restart', `/api/admin/instances/${slug}/restart`)} disabled={!!busy}>
-                                    <RefreshCw className="size-4" /> {busy === 'restart' ? '…' : 'Restart'}
+                                <Button variant="outline" onClick={() => startJob('restart', `/api/admin/instances/${slug}/restart`)} disabled={jobRunning}>
+                                    <RefreshCw className="size-4" /> Restart
                                 </Button>
-                                <Button variant="outline" onClick={() => runAction('migrate', `/api/admin/instances/${slug}/migrate`)} disabled={!!busy}>
-                                    <Database className="size-4" /> {busy === 'migrate' ? '…' : 'Migrate'}
+                                <Button variant="outline" onClick={() => startJob('migrate', `/api/admin/instances/${slug}/migrate`)} disabled={jobRunning}>
+                                    <Database className="size-4" /> Migrate
                                 </Button>
-                                <Button variant="outline" onClick={() => runAction('seed', `/api/admin/instances/${slug}/seed`)} disabled={!!busy}>
-                                    <Sprout className="size-4" /> {busy === 'seed' ? '…' : 'Seed'}
+                                <Button variant="outline" onClick={() => startJob('seed', `/api/admin/instances/${slug}/seed`)} disabled={jobRunning}>
+                                    <Sprout className="size-4" /> Seed
                                 </Button>
-                                <Button variant="outline" onClick={() => runAction('backup', `/api/admin/instances/${slug}/backup`)} disabled={!!busy}>
-                                    <HardDriveDownload className="size-4" /> {busy === 'backup' ? '…' : 'Backup'}
+                                <Button variant="outline" onClick={() => startJob('backup', `/api/admin/instances/${slug}/backup`)} disabled={jobRunning}>
+                                    <HardDriveDownload className="size-4" /> Backup
                                 </Button>
                                 <div className="flex-1" />
                                 <Button
                                     variant="danger"
-                                    onClick={() => { if (confirm(`Destroy "${slug}"? This wipes containers, volumes and on-disk directory.`)) runAction('destroy', `/api/admin/instances/${slug}`, 'DELETE'); }}
-                                    disabled={!!busy}
+                                    onClick={async () => {
+                                        const ok = await confirm({
+                                            title: `Destroy ${slug}?`,
+                                            message: 'This wipes containers, volumes and the on-disk directory. The operation cannot be undone.',
+                                            confirmText: 'Destroy',
+                                            variant: 'danger',
+                                            typeToConfirm: slug,
+                                        });
+                                        if (ok) startJob('destroy', `/api/admin/instances/${slug}`, 'DELETE');
+                                    }}
+                                    disabled={jobRunning}
                                 >
-                                    <Trash2 className="size-4" /> {busy === 'destroy' ? '…' : 'Destroy'}
+                                    <Trash2 className="size-4" /> Destroy
                                 </Button>
                             </div>
                         </div>
+
+                        {job && (
+                            <JobRunner
+                                jobId={job.id}
+                                onClose={jobRunning ? undefined : () => setJob(null)}
+                                onDone={onJobDone}
+                            />
+                        )}
+
+                        <CredentialsCard slug={slug} />
                     </section>
 
                     {/* Right column: logs */}
@@ -365,5 +435,158 @@ function Inp({ label, value, onChange, colSpan }: { label: string; value: string
             <span className="block text-xs muted mb-1">{label}</span>
             <input value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 text-sm" />
         </label>
+    );
+}
+
+type Creds = {
+    admin: { email: string | null; password: string | null; name: string | null };
+    urls: { publicWeb: string | null; publicApi: string | null; s3Public: string | null };
+    ports: Record<string, string | null>;
+    database: { name: string | null; user: string | null; password: string | null; url: string | null };
+    redis: { password: string | null; url: string | null };
+    minio: { rootUser: string | null; rootPassword: string | null; bucket: string | null };
+    secrets: { jwt: string | null; jwtRefresh: string | null; session: string | null };
+};
+
+function CredentialsCard({ slug }: { slug: string }) {
+    const [data, setData] = useState<Creds | null>(null);
+    const [err, setErr] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [open, setOpen] = useState(false);
+    const [revealAll, setRevealAll] = useState(false);
+
+    const load = useCallback(async () => {
+        setLoading(true); setErr(null);
+        try {
+            const r = await fetch(`/api/admin/instances/${slug}/credentials`, { cache: 'no-store' });
+            const j = await r.json();
+            if (!r.ok) throw new Error(j.error ?? r.statusText);
+            setData(j);
+        } catch (e: any) { setErr(e.message); }
+        finally { setLoading(false); }
+    }, [slug]);
+
+    useEffect(() => { if (open && !data && !loading) load(); }, [open, data, loading, load]);
+
+    return (
+        <div className="card p-5">
+            <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                className="w-full flex items-center gap-2"
+            >
+                <KeyRound className="size-4" />
+                <h3 className="font-semibold">Credentials</h3>
+                <span className="text-xs muted ml-2">read from <code>instances/{slug}/.env</code></span>
+                <div className="flex-1" />
+                {open && (
+                    <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => { e.stopPropagation(); setRevealAll((v) => !v); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setRevealAll((v) => !v); } }}
+                        className="inline-flex items-center gap-1.5 rounded-lg font-medium transition px-2.5 py-1 text-xs border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
+                    >
+                        {revealAll ? <><EyeOff className="size-3" /> Hide all</> : <><Eye className="size-3" /> Reveal all</>}
+                    </span>
+                )}
+                <span className="text-xs muted">{open ? 'hide' : 'show'}</span>
+            </button>
+
+            {open && (
+                <div className="mt-4 space-y-5">
+                    {loading && <div className="text-sm muted">Loading…</div>}
+                    {err && <div className="text-sm text-rose-600">{err}</div>}
+                    {data && (
+                        <>
+                            <SecretGroup title="Admin login">
+                                <SecretRow label="Email" value={data.admin.email} secret={false} forceReveal={revealAll} />
+                                <SecretRow label="Password" value={data.admin.password} forceReveal={revealAll} />
+                            </SecretGroup>
+                            <SecretGroup title="Database">
+                                <SecretRow label="Name" value={data.database.name} secret={false} forceReveal={revealAll} />
+                                <SecretRow label="User" value={data.database.user} secret={false} forceReveal={revealAll} />
+                                <SecretRow label="Password" value={data.database.password} forceReveal={revealAll} />
+                                <SecretRow label="URL" value={data.database.url} forceReveal={revealAll} />
+                            </SecretGroup>
+                            <SecretGroup title="MinIO / S3">
+                                <SecretRow label="Root user" value={data.minio.rootUser} secret={false} forceReveal={revealAll} />
+                                <SecretRow label="Root password" value={data.minio.rootPassword} forceReveal={revealAll} />
+                                <SecretRow label="Bucket" value={data.minio.bucket} secret={false} forceReveal={revealAll} />
+                                <SecretRow label="Public endpoint" value={data.urls.s3Public} secret={false} forceReveal={revealAll} />
+                            </SecretGroup>
+                            <SecretGroup title="Redis">
+                                <SecretRow label="Password" value={data.redis.password} forceReveal={revealAll} />
+                                <SecretRow label="URL" value={data.redis.url} forceReveal={revealAll} />
+                            </SecretGroup>
+                            <SecretGroup title="Secrets">
+                                <SecretRow label="JWT" value={data.secrets.jwt} forceReveal={revealAll} />
+                                <SecretRow label="JWT refresh" value={data.secrets.jwtRefresh} forceReveal={revealAll} />
+                                <SecretRow label="Session" value={data.secrets.session} forceReveal={revealAll} />
+                            </SecretGroup>
+                            <SecretGroup title="Ports">
+                                {Object.entries(data.ports).map(([k, v]) => (
+                                    <SecretRow key={k} label={k} value={v} secret={false} forceReveal={revealAll} />
+                                ))}
+                            </SecretGroup>
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function SecretGroup({ title, children }: { title: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <div className="text-[11px] uppercase tracking-wider muted mb-2">{title}</div>
+            <div className="space-y-1.5">{children}</div>
+        </div>
+    );
+}
+
+function SecretRow({ label, value, secret = true, forceReveal = false }: { label: string; value: string | null; secret?: boolean; forceReveal?: boolean }) {
+    const [shown, setShown] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const reveal = !secret || shown || forceReveal;
+
+    async function copy() {
+        if (!value) return;
+        try {
+            await navigator.clipboard.writeText(value);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1200);
+        } catch { /* ignore */ }
+    }
+
+    return (
+        <div className="grid grid-cols-[8rem_1fr_auto] items-center gap-2 text-sm">
+            <div className="text-xs muted truncate">{label}</div>
+            <div className="font-mono text-xs truncate select-all">
+                {value == null ? <span className="muted">—</span> : reveal ? value : '•'.repeat(Math.min(value.length, 24))}
+            </div>
+            <div className="flex items-center gap-1">
+                {secret && (
+                    <button
+                        type="button"
+                        onClick={() => setShown((s) => !s)}
+                        className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 muted"
+                        aria-label={shown ? 'Hide' : 'Reveal'}
+                    >
+                        {shown ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                    </button>
+                )}
+                <button
+                    type="button"
+                    onClick={copy}
+                    disabled={!value}
+                    className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 muted disabled:opacity-30"
+                    aria-label="Copy"
+                >
+                    {copied ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
+                </button>
+            </div>
+        </div>
     );
 }

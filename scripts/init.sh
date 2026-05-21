@@ -36,6 +36,12 @@ MINIO_ROOT_PASSWORD=$(gen_random_password 24)
 ADMIN_EMAIL="admin@${SLUG}.local"
 ADMIN_PASSWORD=$(gen_random_password 16)
 
+# Host used in generated PUBLIC_*_URL values. Defaults to localhost for dev;
+# set AKDMI_PUBLIC_HOST=<server-ip-or-domain> in the portal/runner environment
+# to make new instances reachable from outside the host.
+PUBLIC_HOST="${AKDMI_PUBLIC_HOST:-localhost}"
+PUBLIC_SCHEME="${AKDMI_PUBLIC_SCHEME:-http}"
+
 cat > "$INSTANCE_DIR/.env" <<EOF
 # AKD-MI instance: $SLUG
 # Generated $(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -46,8 +52,8 @@ INSTANCE_NAME=$SLUG
 PORT_OFFSET=$OFFSET
 
 # ── Public URLs ──
-PUBLIC_WEB_URL=http://localhost:$WEB_PORT
-PUBLIC_API_URL=http://localhost:$API_PORT
+PUBLIC_WEB_URL=$PUBLIC_SCHEME://$PUBLIC_HOST:$WEB_PORT
+PUBLIC_API_URL=$PUBLIC_SCHEME://$PUBLIC_HOST:$API_PORT
 
 # ── Ports ──
 WEB_PORT=$WEB_PORT
@@ -78,7 +84,7 @@ SESSION_SECRET=$SESSION_SECRET
 MINIO_ROOT_USER=$MINIO_ROOT_USER
 MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD
 S3_ENDPOINT=http://minio:9000
-S3_PUBLIC_ENDPOINT=http://localhost:$MINIO_PORT
+S3_PUBLIC_ENDPOINT=$PUBLIC_SCHEME://$PUBLIC_HOST:$MINIO_PORT
 S3_REGION=us-east-1
 S3_BUCKET=akdmi-$SLUG
 
@@ -114,4 +120,4 @@ echo
 info "Next steps:"
 echo "  1. Review:  $INSTANCE_DIR/.env"
 echo "  2. Start:   akd-mi up $SLUG"
-echo "  3. Open:    http://localhost:$WEB_PORT"
+echo "  3. Open:    $PUBLIC_SCHEME://$PUBLIC_HOST:$WEB_PORT"

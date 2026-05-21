@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PageHeader, Button } from '@/components/AdminShell';
+import { JobRunner, type JobSnapshot } from '@/components/JobRunner';
 import { ArrowLeft, Sparkles, KeyRound, Copy, Check } from 'lucide-react';
 
 type Category = { code: string; label: string };
@@ -11,6 +12,8 @@ export default function NewInstancePage() {
     const router = useRouter();
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [jobId, setJobId] = useState<string | null>(null);
+    const [jobDone, setJobDone] = useState<JobSnapshot | null>(null);
     const [creds, setCreds] = useState<{ slug: string; email: string; password: string } | null>(null);
     const [copied, setCopied] = useState(false);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -47,13 +50,23 @@ export default function NewInstancePage() {
             });
             const j = await r.json();
             if (!r.ok) throw new Error(j.error ?? r.statusText);
-            if (j.admin?.email && j.admin?.password) {
-                setCreds({ slug: form.slug, email: j.admin.email, password: j.admin.password });
-            } else {
-                router.push(`/admin/instances/${form.slug}`);
-            }
-        } catch (e: any) { setError(e.message); }
-        finally { setBusy(false); }
+            if (!j.jobId) throw new Error('server did not return a jobId');
+            setJobId(j.jobId);
+        } catch (e: any) { setError(e.message); setBusy(false); }
+    }
+
+    function onJobDone(snap: JobSnapshot) {
+        setJobDone(snap);
+        setBusy(false);
+        if (snap.status === 'succeeded' && snap.result?.admin?.email && snap.result?.admin?.password) {
+            setCreds({
+                slug: form.slug,
+                email: snap.result.admin.email,
+                password: snap.result.admin.password,
+            });
+        } else if (snap.status === 'failed' || snap.status === 'canceled') {
+            setError(snap.error ?? `provisioning ${snap.status}`);
+        }
     }
 
     function copyCreds() {
@@ -105,14 +118,15 @@ export default function NewInstancePage() {
                 <section className="card p-5 space-y-4">
                     <h2 className="font-semibold">Identity</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FieldInput label="Slug" required value={form.slug} onChange={(v) => setForm({ ...form, slug: v })} placeholder="paris-tech" hint="Lowercase letters, digits, dashes. 3–32 chars." />
-                        <FieldInput label="Name" required value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="Paris Tech Institute" />
+                        <FieldInput label="Slug" required value={form.slug} onChange={(v) => setForm({ ...form, slug: v })} placeholder="paris-tech" hint="Lowercase letters, digits, dashes. 3–32 chars." disabled={!!jobId} />
+                        <FieldInput label="Name" required value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="Paris Tech Institute" disabled={!!jobId} />
                         <label className="block">
                             <span className="block text-xs muted mb-1">Category</span>
                             <select
                                 value={form.category}
                                 onChange={(e) => setForm({ ...form, category: e.target.value })}
-                                className="w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                disabled={!!jobId}
+                                className="w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 text-sm disabled:opacity-60"
                             >
                                 {categories.length === 0
                                     ? <option value={form.category}>{form.category}</option>
@@ -122,7 +136,7 @@ export default function NewInstancePage() {
                             </select>
                         </label>
                         <label className="flex items-end gap-2 text-sm">
-                            <input type="checkbox" checked={form.isPublished} onChange={(e) => setForm({ ...form, isPublished: e.target.checked })} />
+                            <input type="checkbox" checked={form.isPublished} onChange={(e) => setForm({ ...form, isPublished: e.target.checked })} disabled={!!jobId} />
                             <span>Publish in public directory</span>
                         </label>
                     </div>
@@ -131,8 +145,8 @@ export default function NewInstancePage() {
                 <section className="card p-5 space-y-4">
                     <h2 className="font-semibold">Location & description</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FieldInput label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} />
-                        <FieldInput label="Country" value={form.country} onChange={(v) => setForm({ ...form, country: v })} />
+                        <FieldInput label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} disabled={!!jobId} />
+                        <FieldInput label="Country" value={form.country} onChange={(v) => setForm({ ...form, country: v })} disabled={!!jobId} />
                     </div>
                     <div>
                         <div className="text-xs muted mb-1">Description</div>
@@ -140,26 +154,44 @@ export default function NewInstancePage() {
                             value={form.description}
                             onChange={(e) => setForm({ ...form, description: e.target.value })}
                             rows={3}
-                            className="w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                            disabled={!!jobId}
+                            className="w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 text-sm disabled:opacity-60"
                         />
                     </div>
                 </section>
 
                 {error && <div className="card p-3 text-sm text-rose-600 border-rose-300 whitespace-pre-wrap">{error}</div>}
 
-                <div className="flex items-center gap-3">
-                    <Button type="submit" disabled={busy || !form.slug || !form.name}>
-                        {busy ? 'Provisioning… (init + up + seed)' : 'Create & start'}
-                    </Button>
-                    <Link href="/admin/instances"><Button variant="ghost" type="button">Cancel</Button></Link>
-                    <span className="text-xs muted">Runs <code>akd-mi init → up → seed</code>. May take a couple of minutes.</span>
-                </div>
+                {!jobId && (
+                    <div className="flex items-center gap-3">
+                        <Button type="submit" disabled={busy || !form.slug || !form.name}>
+                            {busy ? 'Starting…' : 'Create & start'}
+                        </Button>
+                        <Link href="/admin/instances"><Button variant="ghost" type="button">Cancel</Button></Link>
+                        <span className="text-xs muted">Runs <code>akd-mi init → up → seed</code>. Live progress appears below.</span>
+                    </div>
+                )}
+
+                {jobId && (
+                    <section className="space-y-3">
+                        <h2 className="font-semibold">Provisioning {form.slug}</h2>
+                        <JobRunner jobId={jobId} onDone={onJobDone} />
+                        {jobDone && jobDone.status !== 'succeeded' && (
+                            <div className="flex items-center gap-3">
+                                <Button type="button" variant="outline" onClick={() => { setJobId(null); setJobDone(null); setError(null); }}>
+                                    Try again
+                                </Button>
+                                <Link href="/admin/instances"><Button variant="ghost" type="button">Back to list</Button></Link>
+                            </div>
+                        )}
+                    </section>
+                )}
             </form>
         </>
     );
 }
 
-function FieldInput({ label, value, onChange, required, placeholder, hint }: { label: string; value: string; onChange: (v: string) => void; required?: boolean; placeholder?: string; hint?: string }) {
+function FieldInput({ label, value, onChange, required, placeholder, hint, disabled }: { label: string; value: string; onChange: (v: string) => void; required?: boolean; placeholder?: string; hint?: string; disabled?: boolean }) {
     return (
         <label className="block">
             <span className="block text-xs muted mb-1">{label}{required && <span className="text-rose-500"> *</span>}</span>
@@ -168,7 +200,8 @@ function FieldInput({ label, value, onChange, required, placeholder, hint }: { l
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={placeholder}
                 required={required}
-                className="w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                disabled={disabled}
+                className="w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 text-sm disabled:opacity-60"
             />
             {hint && <span className="text-[11px] muted mt-1 block">{hint}</span>}
         </label>

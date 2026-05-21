@@ -1,20 +1,12 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { requireAdmin } from '@/lib/admin-auth';
-import { runAkdmi, SLUG_RE } from '@/lib/akdmi';
+import { instanceOpHandler, setInstanceStatus } from '@/lib/instance-ops';
 
 export const dynamic = 'force-dynamic';
 
-// POST /api/admin/instances/:slug/up
-export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
-    const guard = requireAdmin(req); if (guard) return guard;
-    const { slug } = await params;
-    if (!SLUG_RE.test(slug)) return NextResponse.json({ error: 'invalid slug' }, { status: 400 });
-    const res = await runAkdmi(['up', slug], { timeoutMs: 10 * 60 * 1000 });
-    if (!res.ok) return NextResponse.json({ error: 'up failed', cli: res }, { status: 500 });
-    await prisma.instance.update({
-        where: { slug },
-        data: { status: 'RUNNING', lastHealthAt: new Date() },
-    }).catch(() => null);
-    return NextResponse.json({ ok: true, cli: res });
-}
+// POST /api/admin/instances/:slug/up — kicks off `akd-mi up <slug>` as a background
+// job and returns the jobId. Poll /api/admin/jobs/:id to follow progress.
+export const POST = instanceOpHandler({
+    kind: 'up',
+    args: (slug) => ['up', slug],
+    timeoutMs: 10 * 60 * 1000,
+    onSuccess: (slug) => setInstanceStatus(slug, 'RUNNING'),
+});

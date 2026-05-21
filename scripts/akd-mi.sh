@@ -106,7 +106,7 @@ case "$CMD" in
     down)     exec bash "$SCRIPT_DIR/down.sh" "$INSTANCE" ;;
     restart)  bash "$SCRIPT_DIR/down.sh" "$INSTANCE" || true
               exec bash "$SCRIPT_DIR/up.sh" "$INSTANCE" ;;
-    destroy)  exec bash "$SCRIPT_DIR/destroy.sh" "$INSTANCE" ;;
+    destroy)  exec bash "$SCRIPT_DIR/destroy.sh" "$INSTANCE" "${ARGS[@]:-}" ;;
     logs)     exec bash "$SCRIPT_DIR/logs.sh" "$INSTANCE" "${ARGS[@]:-}" ;;
     shell)    exec bash "$SCRIPT_DIR/shell.sh" "$INSTANCE" "${ARGS[@]:-api}" ;;
     exec)     exec bash "$SCRIPT_DIR/exec.sh" "$INSTANCE" "${ARGS[@]:-}" ;;

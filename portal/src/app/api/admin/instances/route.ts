@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/admin-auth';
-import { runAkdmi, readInstanceEnv, instanceDirExists, SLUG_RE } from '@/lib/akdmi';
+import { readInstanceEnv, instanceDirExists, SLUG_RE } from '@/lib/akdmi';
+import { createJob, JobConflictError } from '@/lib/jobs';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ items });
 }
 
-// POST /api/admin/instances — init + up, register in DB, return admin credentials once
+// POST /api/admin/instances — provision a brand new instance.
+// Runs init → up → seed as a single background job. The DB row is created /
+// upserted in the job's onSuccess hook and the admin credentials are attached
+// to job.result. The client polls /api/admin/jobs/:id and reads `result` once
+// status is `succeeded`.
 export async function POST(req: Request) {
     const guard = requireAdmin(req); if (guard) return guard;
     let body: z.infer<typeof CreateBody>;
@@ -38,61 +43,66 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: `Instance '${body.slug}' already exists on disk` }, { status: 409 });
     }
 
-    const initRes = await runAkdmi(['init', body.slug]);
-    if (!initRes.ok) {
-        return NextResponse.json({ error: 'init failed', cli: initRes }, { status: 500 });
-    }
-
-    const upRes = await runAkdmi(['up', body.slug], { timeoutMs: 10 * 60 * 1000 });
-    if (!upRes.ok) {
-        return NextResponse.json({ error: 'up failed', cli: upRes }, { status: 500 });
-    }
-
-    // Seed the initial admin user inside the new instance.
-    const seedRes = await runAkdmi(['seed', body.slug], { timeoutMs: 5 * 60 * 1000 });
-
-    const env = await readInstanceEnv(body.slug);
-    const publicUrl = env.PUBLIC_WEB_URL || undefined;
-    const apiUrl    = env.PUBLIC_API_URL || undefined;
-
-    const inst = await prisma.instance.upsert({
-        where: { slug: body.slug },
-        update: {
-            name: body.name,
-            category: body.category,
-            description: body.description,
-            city: body.city,
-            country: body.country,
-            logoUrl: body.logoUrl,
-            publicUrl,
-            apiUrl,
-            isPublished: body.isPublished ?? false,
-            status: 'RUNNING',
-            lastHealthAt: new Date(),
-        },
-        create: {
+    try {
+        const job = createJob({
             slug: body.slug,
-            name: body.name,
-            category: body.category,
-            description: body.description,
-            city: body.city,
-            country: body.country,
-            logoUrl: body.logoUrl,
-            publicUrl,
-            apiUrl,
-            isPublished: body.isPublished ?? false,
-            status: 'RUNNING',
-            lastHealthAt: new Date(),
-        },
-    });
-
-    return NextResponse.json({
-        instance: inst,
-        admin: {
-            email: env.ADMIN_EMAIL ?? null,
-            // Returned once. The plaintext password also lives in instances/<slug>/.env on disk.
-            password: env.ADMIN_PASSWORD ?? null,
-        },
-        seedOk: seedRes.ok,
-    }, { status: 201 });
+            kind: 'create',
+            title: `provision ${body.slug} (init → up → seed)`,
+            steps: [
+                ['init', body.slug],
+                ['up', body.slug],
+                ['seed', body.slug],
+            ],
+            // 30 min cap for the whole pipeline (image pulls + db boot + seed).
+            timeoutMs: 30 * 60 * 1000,
+            onSuccess: async (j) => {
+                const env = await readInstanceEnv(body.slug);
+                const publicUrl = env.PUBLIC_WEB_URL || undefined;
+                const apiUrl    = env.PUBLIC_API_URL || undefined;
+                const inst = await prisma.instance.upsert({
+                    where: { slug: body.slug },
+                    update: {
+                        name: body.name,
+                        category: body.category,
+                        description: body.description,
+                        city: body.city,
+                        country: body.country,
+                        logoUrl: body.logoUrl,
+                        publicUrl,
+                        apiUrl,
+                        isPublished: body.isPublished ?? false,
+                        status: 'RUNNING',
+                        lastHealthAt: new Date(),
+                    },
+                    create: {
+                        slug: body.slug,
+                        name: body.name,
+                        category: body.category,
+                        description: body.description,
+                        city: body.city,
+                        country: body.country,
+                        logoUrl: body.logoUrl,
+                        publicUrl,
+                        apiUrl,
+                        isPublished: body.isPublished ?? false,
+                        status: 'RUNNING',
+                        lastHealthAt: new Date(),
+                    },
+                });
+                j.result = {
+                    instance: inst,
+                    admin: {
+                        email: env.ADMIN_EMAIL ?? null,
+                        password: env.ADMIN_PASSWORD ?? null,
+                    },
+                };
+            },
+        });
+        return NextResponse.json({ jobId: job.id, slug: body.slug, status: job.status }, { status: 202 });
+    } catch (e: any) {
+        if (e instanceof JobConflictError) {
+            return NextResponse.json({ error: e.message, jobId: e.existingJobId }, { status: 409 });
+        }
+        return NextResponse.json({ error: e?.message ?? 'failed to start job' }, { status: 500 });
+    }
 }
