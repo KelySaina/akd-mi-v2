@@ -67,10 +67,13 @@ export const LANDING_TEMPLATES: { id: LandingTemplateId; name: string; descripti
 export type LandingThemePresetId =
     // soft
     | 'ocean' | 'lavender' | 'mint' | 'peach' | 'sky' | 'rose' | 'sand' | 'lilac'
+    | 'blossom' | 'seafoam' | 'butter' | 'coral' | 'sage'
     // bold
     | 'sunset' | 'forest' | 'amber' | 'crimson' | 'electric' | 'tropic' | 'royal' | 'neon' | 'plum'
+    | 'magenta' | 'flame' | 'jade' | 'cobalt' | 'volt'
     // mono / earth
     | 'slate' | 'graphite' | 'mocha' | 'olive' | 'navy' | 'ink'
+    | 'cream' | 'wine' | 'pine' | 'rust' | 'storm'
     // custom
     | 'custom';
 
@@ -105,6 +108,11 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
     { id: 'rose',     name: 'Rose',     family: 'soft', primary: '#e11d48', accent: '#f472b6' },
     { id: 'sand',     name: 'Sand',     family: 'soft', primary: '#d97706', accent: '#fcd34d' },
     { id: 'lilac',    name: 'Lilac',    family: 'soft', primary: '#a855f7', accent: '#c4b5fd' },
+    { id: 'blossom',  name: 'Blossom',  family: 'soft', primary: '#db2777', accent: '#fbcfe8' },
+    { id: 'seafoam',  name: 'Seafoam',  family: 'soft', primary: '#0891b2', accent: '#a7f3d0' },
+    { id: 'butter',   name: 'Butter',   family: 'soft', primary: '#ca8a04', accent: '#fde68a' },
+    { id: 'coral',    name: 'Coral',    family: 'soft', primary: '#f97316', accent: '#fda4af' },
+    { id: 'sage',     name: 'Sage',     family: 'soft', primary: '#65a30d', accent: '#bbf7d0' },
 
     // ---- Bold ----
     { id: 'sunset',   name: 'Sunset',   family: 'bold', primary: '#ea580c', accent: '#f43f5e' },
@@ -116,6 +124,11 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
     { id: 'royal',    name: 'Royal',    family: 'bold', primary: '#5b21b6', accent: '#f59e0b' },
     { id: 'neon',     name: 'Neon',     family: 'bold', primary: '#db2777', accent: '#22c55e' },
     { id: 'plum',     name: 'Plum',     family: 'bold', primary: '#7e22ce', accent: '#f97316' },
+    { id: 'magenta',  name: 'Magenta',  family: 'bold', primary: '#c026d3', accent: '#f472b6' },
+    { id: 'flame',    name: 'Flame',    family: 'bold', primary: '#dc2626', accent: '#fb923c' },
+    { id: 'jade',     name: 'Jade',     family: 'bold', primary: '#047857', accent: '#34d399' },
+    { id: 'cobalt',   name: 'Cobalt',   family: 'bold', primary: '#1d4ed8', accent: '#f43f5e' },
+    { id: 'volt',     name: 'Volt',     family: 'bold', primary: '#16a34a', accent: '#eab308' },
 
     // ---- Mono / Earth ----
     { id: 'slate',    name: 'Slate',    family: 'mono', primary: '#334155', accent: '#0ea5e9' },
@@ -124,6 +137,11 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
     { id: 'olive',    name: 'Olive',    family: 'mono', primary: '#4d7c0f', accent: '#a3a316' },
     { id: 'navy',     name: 'Navy',     family: 'mono', primary: '#1e3a8a', accent: '#fbbf24' },
     { id: 'ink',      name: 'Ink',      family: 'mono', primary: '#0f172a', accent: '#f43f5e' },
+    { id: 'cream',    name: 'Cream',    family: 'mono', primary: '#57534e', accent: '#d6d3d1' },
+    { id: 'wine',     name: 'Wine',     family: 'mono', primary: '#7f1d1d', accent: '#a8a29e' },
+    { id: 'pine',     name: 'Pine',     family: 'mono', primary: '#064e3b', accent: '#a7f3d0' },
+    { id: 'rust',     name: 'Rust',     family: 'mono', primary: '#9a3412', accent: '#d6d3d1' },
+    { id: 'storm',    name: 'Storm',    family: 'mono', primary: '#475569', accent: '#cbd5e1' },
 ];
 
 export const DEFAULT_THEME: LandingThemePreset = LANDING_THEME_PRESETS[0];

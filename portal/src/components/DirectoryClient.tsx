@@ -1,6 +1,7 @@
 'use client';
+import { resolvePublicUrl } from '@/lib/public-url';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Search, MapPin, ExternalLink, Building2, Globe2, Sparkles, X } from 'lucide-react';
 
@@ -216,6 +217,8 @@ function FilterPill({ active, onClick, label }: { active: boolean; onClick: () =
 
 function InstanceCard({ inst, categoryLabel }: { inst: PublicInstance; categoryLabel: string }) {
     const location = [inst.city, inst.country].filter(Boolean).join(', ');
+    const [resolvedUrl, setResolvedUrl] = useState<string | null>(inst.publicUrl ?? null);
+    useEffect(() => { setResolvedUrl(resolvePublicUrl(inst.publicUrl)); }, [inst.publicUrl]);
     const initials = inst.name
         .split(/\s+/).filter(Boolean).slice(0, 2)
         .map((w) => w[0]?.toUpperCase() ?? '').join('') || inst.slug[0]?.toUpperCase();
@@ -262,9 +265,9 @@ function InstanceCard({ inst, categoryLabel }: { inst: PublicInstance; categoryL
         </article>
     );
 
-    if (inst.publicUrl) {
+    if (resolvedUrl) {
         return (
-            <a href={inst.publicUrl} target="_blank" rel="noopener noreferrer" className="block h-full">
+            <a href={resolvedUrl} target="_blank" rel="noopener noreferrer" className="block h-full">
                 {cardInner}
             </a>
         );

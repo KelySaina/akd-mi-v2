@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageHeader, StatusBadge, Button } from '@/components/AdminShell';
 import { useConfirm, useNotify } from '@/components/Dialogs';
+import { PublicLink } from '@/components/PublicLink';
 import { Plus, Search, RefreshCw, Trash2, Play, Square, ExternalLink, Globe2, DownloadCloud } from 'lucide-react';
 
 type Instance = {
@@ -246,11 +247,9 @@ export default function InstancesListPage() {
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="inline-flex items-center gap-1">
-                                                {i.publicUrl && (
-                                                    <a href={i.publicUrl} target="_blank" rel="noreferrer" className="p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/5" title="Open public URL">
-                                                        <ExternalLink className="size-4" />
-                                                    </a>
-                                                )}
+                                                <PublicLink url={i.publicUrl} className="p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/5" title="Open public URL">
+                                                    <ExternalLink className="size-4" />
+                                                </PublicLink>
                                                 {i.status === 'RUNNING' ? (
                                                     <Button size="sm" variant="outline" onClick={() => action(i.slug, 'down')} disabled={!!busy}>
                                                         <Square className="size-3" /> {busy === `down:${i.slug}` ? '…' : 'Stop'}

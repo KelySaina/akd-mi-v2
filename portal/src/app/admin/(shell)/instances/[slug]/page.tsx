@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { PageHeader, StatusBadge, Button } from '@/components/AdminShell';
 import { JobRunner, type JobSnapshot } from '@/components/JobRunner';
 import { useConfirm, useNotify } from '@/components/Dialogs';
+import { resolvePublicUrl } from '@/lib/public-url';
 import {
     ArrowLeft, Play, Square, RefreshCw, Database, Sprout, HardDriveDownload, Trash2,
     Pencil, ExternalLink, ScrollText, Pause, FileTerminal, X, Save,
@@ -263,12 +264,14 @@ function Meta({ label, value }: { label: string; value: string }) {
 }
 
 function UrlField({ label, url }: { label: string; url?: string | null }) {
+    const [resolved, setResolved] = useState<string | null>(url ?? null);
+    useEffect(() => { setResolved(resolvePublicUrl(url)); }, [url]);
     return (
         <div className="min-w-0">
             <div className="text-[11px] uppercase tracking-wider muted">{label}</div>
-            {url ? (
-                <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:underline truncate max-w-full">
-                    <span className="truncate">{url}</span> <ExternalLink className="size-3 shrink-0" />
+            {resolved ? (
+                <a href={resolved} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:underline truncate max-w-full">
+                    <span className="truncate">{resolved}</span> <ExternalLink className="size-3 shrink-0" />
                 </a>
             ) : <div className="muted">—</div>}
         </div>

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { PageHeader, StatusBadge, Button } from '@/components/AdminShell';
+import { PublicLink } from '@/components/PublicLink';
 import { Server, Activity, Globe2, Plus, ExternalLink } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -68,9 +69,9 @@ export default async function DashboardPage() {
                                         </div>
                                     </div>
                                     {i.publicUrl && (
-                                        <a href={i.publicUrl} target="_blank" rel="noreferrer" className="text-xs text-indigo-600 inline-flex items-center gap-1 hover:underline">
+                                        <PublicLink url={i.publicUrl} className="text-xs text-indigo-600 inline-flex items-center gap-1 hover:underline">
                                             Open <ExternalLink className="size-3" />
-                                        </a>
+                                        </PublicLink>
                                     )}
                                 </li>
                             ))}
