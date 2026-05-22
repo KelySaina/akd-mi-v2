@@ -115,7 +115,7 @@ export default function NewInstancePage() {
                 action={<Link href="/admin/instances"><Button variant="ghost"><ArrowLeft className="size-4" /> Back</Button></Link>}
             />
 
-            <div className="page-fit p-4 lg:p-6 gap-4 lg:gap-6 grid grid-cols-1 lg:grid-cols-2">
+            <div className="page-fit p-4 lg:p-6 gap-4 lg:gap-6 grid grid-cols-1 md:grid-cols-2">
                 {/* ── LEFT: Form ──────────────────────────────────────────── */}
                 <form onSubmit={submit} className="scroll-card card">
                     <header className="px-5 py-3 border-b border-[var(--border)] flex items-center justify-between">
