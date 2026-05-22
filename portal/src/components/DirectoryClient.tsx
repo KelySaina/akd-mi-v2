@@ -92,7 +92,7 @@ export function DirectoryClient({
                         <div className="relative">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 muted pointer-events-none" />
                             <input
-                                type="search"
+                                type="text"
                                 value={q}
                                 onChange={(e) => setQ(e.target.value)}
                                 placeholder="Search by name, city, country…"
