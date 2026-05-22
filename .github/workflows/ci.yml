@@ -101,17 +101,24 @@ jobs:
 
       - name: Sync repo to deploy dir
         run: |
-          # NOTE: 'instances/' is excluded entirely. It is a runtime-managed
-          # directory: the portal container (running as root) creates per-tenant
-          # subfolders, .env files, nginx configs, backups, etc. The runner user
-          # can't delete those, so letting rsync --delete touch the tree fails
-          # with EACCES. Treat the deployed instances/ as state, not as code.
+          # NOTE: only the TOP-LEVEL 'instances/' dir is excluded. It is a
+          # runtime-managed directory: the portal container (running as root)
+          # creates per-tenant subfolders, .env files, nginx configs, backups,
+          # etc. The runner user can't delete those, so letting rsync --delete
+          # touch the tree fails with EACCES. Treat the deployed instances/ as
+          # state, not as code.
+          #
+          # The leading '/' anchors the pattern to the rsync source root, so
+          # nested paths like `portal/src/app/api/admin/instances/` are NOT
+          # excluded. (rsync interprets `--exclude 'instances'` without a
+          # leading slash as "match any path component named 'instances' at
+          # any depth", which silently dropped portal API routes.)
           rsync -a --delete \
-            --exclude '.git' \
+            --exclude '/.git' \
             --exclude 'node_modules' \
             --exclude '.next' \
-            --exclude 'instances' \
-            --exclude 'portal/.env' \
+            --exclude '/instances' \
+            --exclude '/portal/.env' \
             ./ "$DEPLOY_DIR/"
 
       - name: Normalize line endings on shell scripts
