@@ -1,12 +1,13 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Server, Globe2, LogOut, Plus } from 'lucide-react';
+import { LayoutDashboard, Server, Globe2, LogOut, Plus, ListChecks } from 'lucide-react';
 
 const NAV = [
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
     { href: '/admin/instances', label: 'Instances', icon: Server },
     { href: '/admin/instances/new', label: 'New instance', icon: Plus },
+    { href: '/admin/jobs', label: 'Jobs', icon: ListChecks },
     { href: '/', label: 'Public directory', icon: Globe2, exact: true },
 ];
 

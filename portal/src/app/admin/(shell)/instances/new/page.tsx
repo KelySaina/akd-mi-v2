@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PageHeader, Button } from '@/components/AdminShell';
 import { JobRunner, type JobSnapshot } from '@/components/JobRunner';
-import { ArrowLeft, Sparkles, KeyRound, Copy, Check, Info, ListChecks } from 'lucide-react';
+import { ArrowLeft, Sparkles, KeyRound, Copy, Check, Info, ListChecks, ExternalLink } from 'lucide-react';
 
 type Category = { code: string; label: string };
 
@@ -231,7 +231,10 @@ export default function NewInstancePage() {
 
                     <div className="scroll-card-body p-0">
                         {jobId ? (
-                            <div className="p-4">
+                            <div className="p-4 space-y-3">
+                                <Link href={`/admin/jobs/${jobId}`} className="inline-flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-300 hover:underline">
+                                    <ExternalLink className="size-3" /> Open in Jobs page (keeps running if you navigate away)
+                                </Link>
                                 <JobRunner jobId={jobId} onDone={onJobDone} />
                             </div>
                         ) : (
