@@ -31,6 +31,14 @@ const ChangePasswordBody = z.object({
     newPassword: z.string().min(8),
 });
 
+const RegisterBody = z.object({
+    name: z.string().trim().min(1).max(120),
+    email: z.string().email(),
+    password: z.string().min(8).max(200),
+    phone: z.string().trim().max(40).optional(),
+    studentNumber: z.string().trim().min(1).max(40).optional(),
+});
+
 function newRefreshToken() {
     return crypto.randomBytes(48).toString('hex');
 }
@@ -73,7 +81,52 @@ export async function authRoutes(app: FastifyInstance) {
         }
     });
 
-    // Public self-registration is disabled — admins create user accounts.
+    // Public self-registration for prospective students. Creates an inactive
+    // STUDENT account that must be approved by an INSTANCE_ADMIN/MANAGER before
+    // it can sign in. Returns a generic 201 even if the email is taken to avoid
+    // user enumeration is intentionally NOT done here — we return 409 so the
+    // UI can show a helpful "already used" message; flip if you need stricter.
+    app.post('/register', async (req, reply) => {
+        try {
+            const body = RegisterBody.parse(req.body);
+            const existing = await prisma.user.findUnique({ where: { email: body.email } });
+            if (existing) {
+                return reply.code(409).send({ error: 'EmailAlreadyRegistered' });
+            }
+            const passwordHash = await hashPassword(body.password);
+            const studentNumber = body.studentNumber
+                ?? `PEND-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+
+            await prisma.$transaction(async (tx) => {
+                const user = await tx.user.create({
+                    data: {
+                        email: body.email,
+                        name: body.name,
+                        phone: body.phone ?? null,
+                        passwordHash,
+                        role: 'STUDENT',
+                        isActive: false,        // pending admin approval
+                        emailVerified: false,
+                    },
+                });
+                await tx.student.create({
+                    data: {
+                        userId: user.id,
+                        studentNumber,
+                        status: 'pending',
+                    },
+                });
+            });
+
+            return reply.code(201).send({
+                ok: true,
+                status: 'pending',
+                message: 'Account created. An administrator will review your request.',
+            });
+        } catch (err) {
+            return handleError(reply, err);
+        }
+    });
 
     app.post('/refresh', async (req, reply) => {
         try {
