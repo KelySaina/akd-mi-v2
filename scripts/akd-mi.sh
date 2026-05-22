@@ -7,6 +7,7 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 INSTANCES_DIR="$PROJECT_DIR/instances"
 TEMPLATES_DIR="$PROJECT_DIR/templates"
 BACKUPS_DIR="$PROJECT_DIR/backups"
+export PROJECT_DIR INSTANCES_DIR TEMPLATES_DIR BACKUPS_DIR
 
 # shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
