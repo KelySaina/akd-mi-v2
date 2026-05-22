@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from './api';
 
 export type NotificationItem = {
-    kind: 'enrollment_request' | 'password_reset_request' | 'enrollment_status' | 'password_reset_status';
+    kind: 'enrollment_request' | 'password_reset_request' | 'student_application' | 'enrollment_status' | 'password_reset_status';
     id: string;
     title: string;
     subtitle?: string;
@@ -15,10 +15,11 @@ export type NotificationSummary = {
     total: number;
     pendingEnrollments: number;
     pendingPasswordResets: number;
+    pendingStudentApplications: number;
     items: NotificationItem[];
 };
 
-const EMPTY: NotificationSummary = { total: 0, pendingEnrollments: 0, pendingPasswordResets: 0, items: [] };
+const EMPTY: NotificationSummary = { total: 0, pendingEnrollments: 0, pendingPasswordResets: 0, pendingStudentApplications: 0, items: [] };
 
 export function useNotifications(intervalMs = 30000) {
     const [data, setData] = useState<NotificationSummary>(EMPTY);

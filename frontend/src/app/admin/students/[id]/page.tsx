@@ -279,7 +279,7 @@ function OverviewTab({
               onChange={(e) => setForm({ ...form, status: e.target.value })}
               className="mt-1 w-full px-3 py-2 rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 text-ink-900 dark:text-ink-100 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200 dark:focus:ring-brand-500/30 capitalize"
             >
-              {['active','graduated','suspended','dropped'].map((s) => <option key={s} value={s}>{s}</option>)}
+              {['pending','active','graduated','suspended','dropped'].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </label>
         </div>

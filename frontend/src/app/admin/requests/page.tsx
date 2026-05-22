@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { KeyRound, Check, X as XIcon, RefreshCw } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { KeyRound, Check, X as XIcon, RefreshCw, UserPlus, GraduationCap, Mail, Phone, UserCog } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { Modal, Button } from '@/components/ui';
 import { Avatar, Badge } from '@/components/DataTable';
@@ -30,6 +31,40 @@ const STATUS_TONE: Record<string, 'warn' | 'success' | 'danger' | 'default'> = {
 };
 
 export default function RequestsPage() {
+    const [section, setSection] = useState<'applications' | 'passwords'>('applications');
+    return (
+        <>
+            <Topbar title="Requests" />
+            <main className="p-6 space-y-4">
+                <div className="flex items-center gap-2 border-b border-ink-200 dark:border-ink-800 -mt-2 pb-3">
+                    <SectionTab active={section === 'applications'} onClick={() => setSection('applications')} icon={<UserPlus className="size-4" />}>
+                        Student applications
+                    </SectionTab>
+                    <SectionTab active={section === 'passwords'} onClick={() => setSection('passwords')} icon={<KeyRound className="size-4" />}>
+                        Password resets
+                    </SectionTab>
+                </div>
+                {section === 'applications' ? <ApplicationsPanel /> : <PasswordsPanel />}
+            </main>
+        </>
+    );
+}
+
+function SectionTab({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
+    return (
+        <button
+            onClick={onClick}
+            className={`inline-flex items-center gap-2 px-3 py-2 -mb-px border-b-2 text-sm font-medium transition ${active
+                ? 'border-brand-500 text-brand-700 dark:text-brand-300'
+                : 'border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-800 dark:hover:text-ink-200'
+                }`}
+        >
+            {icon}{children}
+        </button>
+    );
+}
+
+function PasswordsPanel() {
     const dialog = useDialog();
     const [rows, setRows] = useState<ResetRow[]>([]);
     const [loading, setLoading] = useState(true);
@@ -83,19 +118,17 @@ export default function RequestsPage() {
 
     return (
         <>
-            <Topbar title="Requests" />
-            <main className="p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <Tab active={filter === 'pending'} onClick={() => setFilter('pending')}>Pending</Tab>
-                        <Tab active={filter === 'all'} onClick={() => setFilter('all')}>All</Tab>
-                    </div>
-                    <button onClick={refresh} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-ink-200 dark:border-ink-700 hover:bg-ink-50 dark:hover:bg-ink-800">
-                        <RefreshCw className="size-4" /> Refresh
-                    </button>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Tab active={filter === 'pending'} onClick={() => setFilter('pending')}>Pending</Tab>
+                    <Tab active={filter === 'all'} onClick={() => setFilter('all')}>All</Tab>
                 </div>
+                <button onClick={refresh} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-ink-200 dark:border-ink-700 hover:bg-ink-50 dark:hover:bg-ink-800">
+                    <RefreshCw className="size-4" /> Refresh
+                </button>
+            </div>
 
-                <div className="rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 overflow-hidden">
+            <div className="rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 overflow-hidden mt-4">
                     {loading ? (
                         <div className="p-12 text-center text-sm text-ink-500">Loading…</div>
                     ) : rows.length === 0 ? (
@@ -143,8 +176,7 @@ export default function RequestsPage() {
                             ))}
                         </ul>
                     )}
-                </div>
-            </main>
+            </div>
 
             <Modal
                 open={!!generatedPassword}
@@ -177,5 +209,146 @@ function Tab({ active, onClick, children }: { active: boolean; onClick: () => vo
         >
             {children}
         </button>
+    );
+}
+
+type PendingApp = {
+    id: string;
+    studentNumber: string;
+    status: string;
+    createdAt: string;
+    user: { id: string; name: string; email: string; phone: string | null; avatarUrl: string | null; isActive: boolean; createdAt: string };
+};
+
+function ApplicationsPanel() {
+    const dialog = useDialog();
+    const router = useRouter();
+    const [rows, setRows] = useState<PendingApp[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [approvingId, setApprovingId] = useState<string | null>(null);
+    const [approved, setApproved] = useState<{ user: string; password: string; studentId: string } | null>(null);
+
+    const refresh = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await api.get<{ items: PendingApp[] }>(`/students/pending`);
+            setRows(res.items ?? []);
+        } catch (e: any) {
+            dialog.alert({ title: 'Failed to load applications', message: e.message });
+        } finally { setLoading(false); }
+    }, [dialog]);
+
+    useEffect(() => { refresh(); }, [refresh]);
+
+    async function approve(r: PendingApp) {
+        setApprovingId(r.id);
+        try {
+            const res = await api.post<{ generatedPassword: string; student: { id: string } }>(`/students/${r.id}/approve`, {});
+            setApproved({ user: r.user.name, password: res.generatedPassword, studentId: res.student.id });
+            await refresh();
+        } catch (e: any) {
+            dialog.alert({ title: 'Approval failed', message: e.message });
+        } finally { setApprovingId(null); }
+    }
+
+    async function reject(r: PendingApp) {
+        const ok = await dialog.confirm({
+            title: 'Reject application?',
+            message: `This will permanently delete ${r.user.name}'s account request. Continue?`,
+            confirmLabel: 'Reject',
+            tone: 'danger',
+        });
+        if (!ok) return;
+        try {
+            await api.post(`/students/${r.id}/reject`, {});
+            await refresh();
+        } catch (e: any) {
+            dialog.alert({ title: 'Reject failed', message: e.message });
+        }
+    }
+
+    return (
+        <>
+            <div className="flex items-center justify-between">
+                <div className="text-sm text-ink-500 dark:text-ink-400">
+                    {loading ? 'Loading…' : `${rows.length} pending application${rows.length === 1 ? '' : 's'}`}
+                </div>
+                <button onClick={refresh} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-ink-200 dark:border-ink-700 hover:bg-ink-50 dark:hover:bg-ink-800">
+                    <RefreshCw className="size-4" /> Refresh
+                </button>
+            </div>
+
+            <div className="rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 overflow-hidden mt-4">
+                {loading ? (
+                    <div className="p-12 text-center text-sm text-ink-500">Loading…</div>
+                ) : rows.length === 0 ? (
+                    <div className="p-12 text-center">
+                        <div className="size-12 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 grid place-items-center mx-auto mb-3">
+                            <Check className="size-6" />
+                        </div>
+                        <div className="font-medium">No pending applications</div>
+                        <div className="text-sm text-ink-500 dark:text-ink-400 mt-1">New self-registered students will appear here.</div>
+                    </div>
+                ) : (
+                    <ul className="divide-y divide-ink-200 dark:divide-ink-800">
+                        {rows.map((r) => (
+                            <li key={r.id} className="p-4 flex items-start gap-3">
+                                <Avatar name={r.user.name} src={r.user.avatarUrl} />
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <div className="font-medium truncate">{r.user.name}</div>
+                                        <Badge tone="warn">pending</Badge>
+                                        <span className="text-xs text-ink-500">·</span>
+                                        <span className="text-xs text-ink-500 font-mono">{r.studentNumber}</span>
+                                    </div>
+                                    <div className="mt-1 flex items-center gap-3 flex-wrap text-sm text-ink-500 dark:text-ink-400">
+                                        <span className="inline-flex items-center gap-1.5"><Mail className="size-3.5" />{r.user.email}</span>
+                                        {r.user.phone && <span className="inline-flex items-center gap-1.5"><Phone className="size-3.5" />{r.user.phone}</span>}
+                                    </div>
+                                    <div className="text-[11px] text-ink-400 mt-1">
+                                        Applied {new Date(r.createdAt).toLocaleString()}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <Button onClick={() => approve(r)} variant="primary" disabled={approvingId === r.id}>
+                                        <GraduationCap className="size-4" /> {approvingId === r.id ? 'Approving…' : 'Approve'}
+                                    </Button>
+                                    <Button onClick={() => reject(r)} variant="ghost" disabled={approvingId === r.id}>
+                                        <XIcon className="size-4" /> Reject
+                                    </Button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+
+            <Modal
+                open={!!approved}
+                onClose={() => setApproved(null)}
+                title="Student approved"
+                size="md"
+                footer={
+                    <>
+                        <Button variant="ghost" onClick={() => setApproved(null)}>Stay here</Button>
+                        <Button onClick={() => { if (approved) router.push(`/admin/students/${approved.studentId}`); }}>
+                            <UserCog className="size-4" /> Open profile to complete details
+                        </Button>
+                    </>
+                }
+            >
+                {approved && (
+                    <div className="space-y-3">
+                        <p className="text-sm text-ink-600 dark:text-ink-300">
+                            <strong>{approved.user}</strong> can now sign in. Share this one-time password securely — it will not be shown again.
+                        </p>
+                        <PasswordReveal password={approved.password} />
+                        <p className="text-xs text-ink-500 dark:text-ink-400">
+                            Tip: open the profile to set birth date, program, enrollment year, guardian contact and avatar.
+                        </p>
+                    </div>
+                )}
+            </Modal>
+        </>
     );
 }

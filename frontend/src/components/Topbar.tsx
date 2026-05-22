@@ -1,5 +1,5 @@
 'use client';
-import { Search, Bell, Plus, ClipboardList, KeyRound, CheckCircle2, XCircle } from 'lucide-react';
+import { Search, Bell, Plus, ClipboardList, KeyRound, CheckCircle2, XCircle, UserPlus } from 'lucide-react';
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ThemeToggle } from '@/lib/theme';
@@ -101,10 +101,12 @@ function NotificationBell() {
 function NotificationRow({ it, onSelect }: { it: NotificationItem; onSelect: () => void }) {
   const Icon = it.kind === 'enrollment_request' ? ClipboardList
     : it.kind === 'password_reset_request' ? KeyRound
+    : it.kind === 'student_application' ? UserPlus
     : it.kind === 'enrollment_status' ? CheckCircle2
     : XCircle;
   const tint = it.kind === 'enrollment_request' ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10'
     : it.kind === 'password_reset_request' ? 'text-amber-600 bg-amber-50 dark:bg-amber-500/10'
+    : it.kind === 'student_application' ? 'text-sky-600 bg-sky-50 dark:bg-sky-500/10'
     : it.kind === 'enrollment_status' ? 'text-brand-600 bg-brand-50 dark:bg-brand-500/10'
     : 'text-ink-500 bg-ink-100 dark:bg-ink-800';
   const content = (

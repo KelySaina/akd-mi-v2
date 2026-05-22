@@ -19,6 +19,7 @@ type Student = {
 };
 
 const STATUS_TONES: Record<string, 'default' | 'success' | 'warn' | 'danger' | 'brand'> = {
+  pending: 'warn',
   active: 'success',
   graduated: 'brand',
   suspended: 'warn',

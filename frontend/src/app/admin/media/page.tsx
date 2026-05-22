@@ -1,11 +1,29 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, Trash2, Copy, Search, ImagePlus } from 'lucide-react';
+import { Loader2, Trash2, Copy, Search, ImagePlus, Image as ImageIcon, Sparkles, Layout, FileText, Film, Wand2, Box, ArrowRight } from 'lucide-react';
 import { Topbar, PrimaryButton } from '@/components/Topbar';
 import { Button, Modal, TextInput } from '@/components/ui';
 import { api, uploadFile } from '@/lib/api';
 import { MEDIA_KINDS, type MediaItem } from '@/components/MediaPicker';
 import { useDialog } from '@/components/DialogProvider';
+
+type KindOption = {
+  value: string;
+  label: string;
+  icon: typeof ImageIcon;
+  blurb: string;
+  example: string;
+};
+
+const KIND_OPTIONS: KindOption[] = [
+  { value: 'auto',     label: 'Smart auto',   icon: Wand2,     blurb: 'Pick the kind from the file type. Images become gallery, videos become video, the rest become document.', example: 'Use when you upload a mixed batch and just want it sorted.' },
+  { value: 'logo',     label: 'Logo',         icon: Sparkles,  blurb: 'Your institution mark — shown in the topbar, on the public landing page and on shared links.',           example: 'A transparent PNG/SVG of the school logo.' },
+  { value: 'cover',    label: 'Cover',        icon: Layout,    blurb: 'Large hero image used at the top of the landing page and in headers.',                                  example: 'A wide campus or classroom photo.' },
+  { value: 'gallery',  label: 'Gallery',      icon: ImageIcon, blurb: 'Reusable photos for course thumbnails, event recaps, slideshows and decorative spots across the site.',  example: 'Class photos, event snapshots, illustrations.' },
+  { value: 'document', label: 'Document',     icon: FileText,  blurb: 'PDFs and downloadable papers students or staff might need to read or print.',                            example: 'Syllabus, brochure, application form, rulebook.' },
+  { value: 'video',    label: 'Video',        icon: Film,      blurb: 'Promo or course videos. Stored as-is; embed by URL where you need them.',                                example: 'Welcome video, course intro reel.' },
+  { value: 'other',    label: 'Other',        icon: Box,       blurb: 'Anything that doesn’t fit the categories above. It will not appear in image pickers by default.',         example: 'Spreadsheets, archives, raw assets.' },
+];
 
 export default function MediaLibraryPage() {
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -16,6 +34,8 @@ export default function MediaLibraryPage() {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [editItem, setEditItem] = useState<MediaItem | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
+  const [chosenKind, setChosenKind] = useState<string>('auto');
   const fileInput = useRef<HTMLInputElement>(null);
   const dialog = useDialog();
 
@@ -27,13 +47,32 @@ export default function MediaLibraryPage() {
 
   useEffect(() => { (async () => { setLoading(true); await reload(); setLoading(false); })(); }, []);
 
-  async function ingest(files: File[]) {
+  function promptKind(files: File[]) {
+    if (!files.length) return;
+    setPendingFiles(files);
+    setChosenKind('auto');
+  }
+
+  function kindFromMime(mime: string): string {
+    if (mime.startsWith('image/')) return 'gallery';
+    if (mime.startsWith('video/')) return 'video';
+    return 'document';
+  }
+
+  async function ingest(files: File[], kindHint: string) {
     setUploading(true); setError(null);
     try {
       for (const f of files) {
         const up = await uploadFile(f);
-        const kind = f.type.startsWith('image/') ? 'gallery' : 'document';
-        await api.post('/institution/media', { kind, url: up.url, caption: f.name });
+        const kind = kindHint === 'auto' ? kindFromMime(f.type || '') : kindHint;
+        await api.post('/institution/media', {
+          kind,
+          url: up.url,
+          title: f.name,
+          filename: f.name,
+          mimeType: up.mimeType ?? f.type ?? null,
+          size: up.size ?? f.size ?? null,
+        });
       }
       await reload();
     } catch (e: any) { setError(e.message); }
@@ -75,7 +114,7 @@ export default function MediaLibraryPage() {
           accept="image/*,application/pdf"
           multiple
           className="hidden"
-          onChange={(e) => { if (e.target.files) ingest(Array.from(e.target.files)); if (fileInput.current) fileInput.current.value = ''; }}
+          onChange={(e) => { if (e.target.files) promptKind(Array.from(e.target.files)); if (fileInput.current) fileInput.current.value = ''; }}
         />
 
         {/* Toolbar */}
@@ -112,7 +151,7 @@ export default function MediaLibraryPage() {
           onDragLeave={() => setDragOver(false)}
           onDrop={(e) => {
             e.preventDefault(); setDragOver(false);
-            if (e.dataTransfer.files?.length) ingest(Array.from(e.dataTransfer.files));
+            if (e.dataTransfer.files?.length) promptKind(Array.from(e.dataTransfer.files));
           }}
           className={[
             'rounded-2xl border-2 border-dashed transition',
@@ -148,6 +187,65 @@ export default function MediaLibraryPage() {
         onSaved={async () => { setEditItem(null); await reload(); }}
         onError={setError}
       />
+
+      <Modal
+        open={!!pendingFiles}
+        onClose={() => !uploading && setPendingFiles(null)}
+        title="What kind of files are these?"
+        description={pendingFiles && pendingFiles.length === 1
+          ? `Choose a category for “${pendingFiles[0].name}” — it controls where it shows up across the app.`
+          : `Choose a category for the ${pendingFiles?.length ?? 0} files — it controls where they show up across the app.`}
+        size="xl"
+        dismissOnBackdrop={!uploading}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPendingFiles(null)} disabled={uploading}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                const files = pendingFiles;
+                if (!files) return;
+                setPendingFiles(null);
+                await ingest(files, chosenKind);
+              }}
+              disabled={uploading}
+            >
+              {uploading ? <><Loader2 className="size-4 animate-spin" /> Uploading…</> : <>Upload {pendingFiles?.length ?? 0} file{(pendingFiles?.length ?? 0) === 1 ? '' : 's'} <ArrowRight className="size-4" /></>}
+            </Button>
+          </>
+        }
+      >
+        <div className="grid sm:grid-cols-2 gap-3">
+          {KIND_OPTIONS.map((k) => {
+            const Icon = k.icon;
+            const active = chosenKind === k.value;
+            return (
+              <button
+                key={k.value}
+                type="button"
+                onClick={() => setChosenKind(k.value)}
+                className={[
+                  'text-left rounded-xl border p-3 transition flex gap-3',
+                  active
+                    ? 'border-brand-500 bg-brand-50/60 dark:bg-brand-500/10 ring-2 ring-brand-500/30'
+                    : 'border-ink-200 dark:border-ink-700 hover:border-brand-400 hover:bg-ink-50 dark:hover:bg-ink-800/60',
+                ].join(' ')}
+              >
+                <div className={[
+                  'size-9 rounded-lg grid place-items-center shrink-0',
+                  active ? 'bg-brand-500 text-white' : 'bg-ink-100 dark:bg-ink-800 text-ink-600 dark:text-ink-300',
+                ].join(' ')}>
+                  <Icon className="size-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold">{k.label}</div>
+                  <div className="text-xs text-ink-600 dark:text-ink-300 mt-0.5 leading-snug">{k.blurb}</div>
+                  <div className="text-[11px] text-ink-500 dark:text-ink-400 mt-1 italic">e.g. {k.example}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </Modal>
     </>
   );
 }

@@ -14,7 +14,7 @@ export async function notificationRoutes(app: FastifyInstance) {
         try {
             const role = req.user!.role;
             const items: Array<{
-                kind: 'enrollment_request' | 'password_reset_request' | 'enrollment_status' | 'password_reset_status';
+                kind: 'enrollment_request' | 'password_reset_request' | 'student_application' | 'enrollment_status' | 'password_reset_status';
                 id: string;
                 title: string;
                 subtitle?: string;
@@ -23,10 +23,11 @@ export async function notificationRoutes(app: FastifyInstance) {
             }> = [];
             let pendingEnrollments = 0;
             let pendingPasswordResets = 0;
+            let pendingStudentApplications = 0;
 
             if (role === 'INSTANCE_ADMIN' || role === 'MANAGER') {
-                // staff: pending enrollments + password resets, system-wide
-                const [enrolls, resets] = await Promise.all([
+                // staff: pending enrollments + password resets + student applications, system-wide
+                const [enrolls, resets, apps] = await Promise.all([
                     prisma.enrollment.findMany({
                         where: { status: 'pending' },
                         include: { student: { include: { user: true } }, course: true },
@@ -39,9 +40,16 @@ export async function notificationRoutes(app: FastifyInstance) {
                         orderBy: { createdAt: 'desc' },
                         take: 10,
                     }),
+                    prisma.student.findMany({
+                        where: { status: 'pending' },
+                        include: { user: { select: { name: true, email: true } } },
+                        orderBy: { createdAt: 'desc' },
+                        take: 10,
+                    }),
                 ]);
                 pendingEnrollments = await prisma.enrollment.count({ where: { status: 'pending' } });
                 pendingPasswordResets = await prisma.passwordResetRequest.count({ where: { status: 'pending' } });
+                pendingStudentApplications = await prisma.student.count({ where: { status: 'pending' } });
 
                 for (const e of enrolls) {
                     items.push({
@@ -60,6 +68,16 @@ export async function notificationRoutes(app: FastifyInstance) {
                         title: `${r.user.name} requested a password reset`,
                         subtitle: r.reason ?? r.user.email,
                         createdAt: r.createdAt,
+                        href: '/admin/requests',
+                    });
+                }
+                for (const a of apps) {
+                    items.push({
+                        kind: 'student_application',
+                        id: a.id,
+                        title: `${a.user.name} applied to join`,
+                        subtitle: a.user.email,
+                        createdAt: a.createdAt,
                         href: '/admin/requests',
                     });
                 }
@@ -134,9 +152,10 @@ export async function notificationRoutes(app: FastifyInstance) {
             // sort and cap
             items.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
             return {
-                total: pendingEnrollments + pendingPasswordResets,
+                total: pendingEnrollments + pendingPasswordResets + pendingStudentApplications,
                 pendingEnrollments,
                 pendingPasswordResets,
+                pendingStudentApplications,
                 items: items.slice(0, 15),
             };
         } catch (err) { return handleError(reply, err); }

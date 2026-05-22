@@ -34,9 +34,14 @@ const ChangePasswordBody = z.object({
 const RegisterBody = z.object({
     name: z.string().trim().min(1).max(120),
     email: z.string().email(),
-    password: z.string().min(8).max(200),
+    // Password is optional on public self-registration: when the admin / manager
+    // approves the account they assign credentials (or trigger a reset email).
+    // If provided we honor it; otherwise we generate a random one so the row is
+    // valid until rotation.
+    password: z.string().min(8).max(200).optional(),
     phone: z.string().trim().max(40).optional(),
-    studentNumber: z.string().trim().min(1).max(40).optional(),
+    // Student number is assigned at acceptance by an administrator, never by
+    // the applicant. We always generate a "PEND-..." placeholder here.
 });
 
 function newRefreshToken() {
@@ -93,9 +98,12 @@ export async function authRoutes(app: FastifyInstance) {
             if (existing) {
                 return reply.code(409).send({ error: 'EmailAlreadyRegistered' });
             }
-            const passwordHash = await hashPassword(body.password);
-            const studentNumber = body.studentNumber
-                ?? `PEND-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+            // If the applicant didn't pick a password, generate a strong random
+            // one. The account is created inactive anyway — an admin will set
+            // real credentials (or trigger a password-reset email) at approval.
+            const rawPassword = body.password ?? crypto.randomBytes(18).toString('base64url');
+            const passwordHash = await hashPassword(rawPassword);
+            const studentNumber = `PEND-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
 
             await prisma.$transaction(async (tx) => {
                 const user = await tx.user.create({
