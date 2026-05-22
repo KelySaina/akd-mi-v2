@@ -1,46 +1,58 @@
-import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
+import { prisma } from '@/lib/prisma';
+import { listActiveCategories } from '@/lib/categories';
+import { DirectoryClient, type PublicInstance, type CategoryItem } from '@/components/DirectoryClient';
+import { ArrowRight } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 export default async function PublicDirectory() {
-    const instances = await prisma.instance.findMany({
-        where: { isPublished: true, status: { in: ['RUNNING'] } },
-        orderBy: { name: 'asc' },
-        take: 100,
-    }).catch(() => [] as Awaited<ReturnType<typeof prisma.instance.findMany>>);
+    const [instances, categories] = await Promise.all([
+        prisma.instance.findMany({
+            where: { isPublished: true, status: { in: ['RUNNING'] } },
+            orderBy: { name: 'asc' },
+            take: 200,
+            select: {
+                id: true, slug: true, name: true, category: true,
+                description: true, city: true, country: true,
+                logoUrl: true, publicUrl: true,
+            },
+        }).catch(() => [] as PublicInstance[]),
+        listActiveCategories().catch(() => [] as CategoryItem[]),
+    ]);
 
     return (
-        <main className="min-h-screen max-w-5xl mx-auto p-8">
-            <header className="mb-8">
-                <h1 className="text-4xl font-bold">AKD-MI Directory</h1>
-                <p className="opacity-70 mt-2">Discover educational institutions on the AKD-MI platform.</p>
+        <div className="min-h-screen">
+            {/* ── Public top bar ───────────────────────────────────────── */}
+            <header className="border-b border-[var(--border)] bg-[var(--panel)]/70 backdrop-blur sticky top-0 z-20">
+                <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+                    <Link href="/" className="inline-flex items-center gap-2 font-semibold">
+                        <span className="size-7 rounded-lg gradient-brand grid place-items-center text-white text-xs font-bold">AK</span>
+                        AKD-MI
+                    </Link>
+                    <nav className="flex items-center gap-1 text-sm">
+                        <Link
+                            href="/admin"
+                            className="inline-flex items-center gap-1 h-9 px-3 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.06] muted hover:text-[var(--ink)]"
+                        >
+                            Platform admin <ArrowRight className="size-3.5" />
+                        </Link>
+                    </nav>
+                </div>
             </header>
 
-            {instances.length === 0 ? (
-                <p className="opacity-60">No published institutions yet.</p>
-            ) : (
-                <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {instances.map((i) => (
-                        <li key={i.id} className="border border-current/15 rounded-lg p-4">
-                            <h2 className="font-semibold">{i.name}</h2>
-                            <p className="text-sm opacity-70">
-                                {[i.city, i.country].filter(Boolean).join(', ') || '—'}
-                            </p>
-                            <p className="text-xs opacity-50 mt-1">{i.category}</p>
-                            {i.publicUrl && (
-                                <Link href={i.publicUrl} className="inline-block mt-3 underline text-sm">
-                                    Visit →
-                                </Link>
-                            )}
-                        </li>
-                    ))}
-                </ul>
-            )}
+            <main>
+                <DirectoryClient instances={instances as PublicInstance[]} categories={categories} />
+            </main>
 
-            <footer className="mt-12 text-sm opacity-50">
-                <Link href="/admin" className="underline">Platform admin</Link>
+            <footer className="border-t border-[var(--border)] mt-10">
+                <div className="max-w-6xl mx-auto px-6 py-8 text-sm muted flex flex-wrap items-center justify-between gap-3">
+                    <p>© {new Date().getFullYear()} AKD-MI Platform</p>
+                    <div className="flex items-center gap-4">
+                        <Link href="/admin" className="hover:text-[var(--ink)]">Admin</Link>
+                    </div>
+                </div>
             </footer>
-        </main>
+        </div>
     );
 }
