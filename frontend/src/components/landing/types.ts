@@ -29,9 +29,15 @@ export const CATEGORY_LABEL: Record<string, string> = {
 // Landing templates
 // ---------------------------------------------------------------------------
 
-export type LandingTemplateId = 'classic' | 'modern' | 'minimal' | 'editorial' | 'vibrant' | 'corporate';
+export type LandingTemplateId =
+    | 'classic' | 'modern' | 'minimal' | 'editorial' | 'vibrant' | 'corporate'
+    | 'academic' | 'tech' | 'art' | 'boutique' | 'salon' | 'kids'
+    | 'culinary' | 'sports' | 'music' | 'language' | 'medical' | 'agri';
 
-export type LandingTone = 'dark' | 'light' | 'mono' | 'editorial' | 'vibrant' | 'corporate';
+export type LandingTone =
+    | 'dark' | 'light' | 'mono' | 'editorial' | 'vibrant' | 'corporate'
+    | 'academic' | 'tech' | 'art' | 'boutique' | 'salon' | 'kids'
+    | 'culinary' | 'sports' | 'music' | 'language' | 'medical' | 'agri';
 
 export const LANDING_TEMPLATES: { id: LandingTemplateId; name: string; description: string; tone: LandingTone }[] = [
     { id: 'classic',   name: 'Classic',   description: 'Dark mesh gradient with glass cards. Bold and immersive.',         tone: 'dark' },
@@ -40,13 +46,41 @@ export const LANDING_TEMPLATES: { id: LandingTemplateId; name: string; descripti
     { id: 'editorial', name: 'Editorial', description: 'Magazine feel — serif headlines, drop cap, two-column body.',      tone: 'editorial' },
     { id: 'vibrant',   name: 'Vibrant',   description: 'Bold full-bleed color blocks and big gradient titles.',            tone: 'vibrant' },
     { id: 'corporate', name: 'Corporate', description: 'Structured & trustworthy with a left rail and brand accents.',     tone: 'corporate' },
+    { id: 'academic',  name: 'Academic',  description: 'Ivy-league serif, navy crest aesthetic, dignified and timeless.',  tone: 'academic' },
+    { id: 'tech',      name: 'Tech',      description: 'Bootcamp / coding school. Dark terminal vibe, mono fonts.',        tone: 'tech' },
+    { id: 'art',       name: 'Art & Design', description: 'Brutalist big-imagery layout for art / design / fashion schools.', tone: 'art' },
+    { id: 'boutique',  name: 'Boutique',  description: 'E-commerce style program catalog. Cards, badges, browse-the-shelf.', tone: 'boutique' },
+    { id: 'salon',     name: 'Salon & Wellness', description: 'Warm gold / blush tones for beauty, wellness, hair studios.', tone: 'salon' },
+    { id: 'kids',      name: 'Kids',      description: 'Playful colorful blobs for kindergartens and primary schools.',    tone: 'kids' },
+    { id: 'culinary',  name: 'Culinary',  description: 'Warm wood & cream tones for cooking and pastry schools.',          tone: 'culinary' },
+    { id: 'sports',    name: 'Sports',    description: 'High-energy bold sans for sports academies and fitness schools.',  tone: 'sports' },
+    { id: 'music',     name: 'Music',     description: 'Concert-hall dark with stage spotlight for music conservatories.',  tone: 'music' },
+    { id: 'language',  name: 'Language',  description: 'Multilingual greeting hero for language schools.',                  tone: 'language' },
+    { id: 'medical',   name: 'Medical',   description: 'Calm clinical white & teal for nursing and medical schools.',       tone: 'medical' },
+    { id: 'agri',      name: 'Agriculture', description: 'Earthy greens & sun for agriculture and sustainability schools.', tone: 'agri' },
 ];
 
 // ---------------------------------------------------------------------------
 // Color themes
 // ---------------------------------------------------------------------------
 
-export type LandingThemePresetId = 'ocean' | 'forest' | 'sunset' | 'lavender' | 'slate' | 'amber' | 'custom';
+export type LandingThemePresetId =
+    // soft
+    | 'ocean' | 'lavender' | 'mint' | 'peach' | 'sky' | 'rose' | 'sand' | 'lilac'
+    // bold
+    | 'sunset' | 'forest' | 'amber' | 'crimson' | 'electric' | 'tropic' | 'royal' | 'neon' | 'plum'
+    // mono / earth
+    | 'slate' | 'graphite' | 'mocha' | 'olive' | 'navy' | 'ink'
+    // custom
+    | 'custom';
+
+export type LandingThemeFamily = 'soft' | 'bold' | 'mono';
+
+export const LANDING_THEME_FAMILIES: { id: LandingThemeFamily; name: string; description: string }[] = [
+    { id: 'soft',  name: 'Soft',  description: 'Pastels & airy gradients — friendly and approachable.' },
+    { id: 'bold',  name: 'Bold',  description: 'High-energy palettes that pop on a page.' },
+    { id: 'mono',  name: 'Mono & Earth', description: 'Quiet, grounded neutrals for a serious tone.' },
+];
 
 /** Stored shape in Institution.settings.landingTheme. */
 export type LandingThemeSettings =
@@ -56,17 +90,40 @@ export type LandingThemeSettings =
 export type LandingThemePreset = {
     id: LandingThemePresetId;
     name: string;
+    family: LandingThemeFamily;
     primary: string; // hex
     accent: string;  // hex
 };
 
 export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
-    { id: 'ocean',    name: 'Ocean',    primary: '#2563eb', accent: '#06b6d4' },
-    { id: 'forest',   name: 'Forest',   primary: '#059669', accent: '#14b8a6' },
-    { id: 'sunset',   name: 'Sunset',   primary: '#ea580c', accent: '#f43f5e' },
-    { id: 'lavender', name: 'Lavender', primary: '#7c3aed', accent: '#ec4899' },
-    { id: 'slate',    name: 'Slate',    primary: '#334155', accent: '#0ea5e9' },
-    { id: 'amber',    name: 'Amber',    primary: '#b45309', accent: '#f59e0b' },
+    // ---- Soft ----
+    { id: 'ocean',    name: 'Ocean',    family: 'soft', primary: '#2563eb', accent: '#06b6d4' },
+    { id: 'lavender', name: 'Lavender', family: 'soft', primary: '#7c3aed', accent: '#ec4899' },
+    { id: 'mint',     name: 'Mint',     family: 'soft', primary: '#10b981', accent: '#84cc16' },
+    { id: 'peach',    name: 'Peach',    family: 'soft', primary: '#fb7185', accent: '#fb923c' },
+    { id: 'sky',      name: 'Sky',      family: 'soft', primary: '#0ea5e9', accent: '#22d3ee' },
+    { id: 'rose',     name: 'Rose',     family: 'soft', primary: '#e11d48', accent: '#f472b6' },
+    { id: 'sand',     name: 'Sand',     family: 'soft', primary: '#d97706', accent: '#fcd34d' },
+    { id: 'lilac',    name: 'Lilac',    family: 'soft', primary: '#a855f7', accent: '#c4b5fd' },
+
+    // ---- Bold ----
+    { id: 'sunset',   name: 'Sunset',   family: 'bold', primary: '#ea580c', accent: '#f43f5e' },
+    { id: 'forest',   name: 'Forest',   family: 'bold', primary: '#059669', accent: '#14b8a6' },
+    { id: 'amber',    name: 'Amber',    family: 'bold', primary: '#b45309', accent: '#f59e0b' },
+    { id: 'crimson',  name: 'Crimson',  family: 'bold', primary: '#9f1239', accent: '#ef4444' },
+    { id: 'electric', name: 'Electric', family: 'bold', primary: '#4f46e5', accent: '#22d3ee' },
+    { id: 'tropic',   name: 'Tropic',   family: 'bold', primary: '#0d9488', accent: '#facc15' },
+    { id: 'royal',    name: 'Royal',    family: 'bold', primary: '#5b21b6', accent: '#f59e0b' },
+    { id: 'neon',     name: 'Neon',     family: 'bold', primary: '#db2777', accent: '#22c55e' },
+    { id: 'plum',     name: 'Plum',     family: 'bold', primary: '#7e22ce', accent: '#f97316' },
+
+    // ---- Mono / Earth ----
+    { id: 'slate',    name: 'Slate',    family: 'mono', primary: '#334155', accent: '#0ea5e9' },
+    { id: 'graphite', name: 'Graphite', family: 'mono', primary: '#1f2937', accent: '#94a3b8' },
+    { id: 'mocha',    name: 'Mocha',    family: 'mono', primary: '#78350f', accent: '#d6a35a' },
+    { id: 'olive',    name: 'Olive',    family: 'mono', primary: '#4d7c0f', accent: '#a3a316' },
+    { id: 'navy',     name: 'Navy',     family: 'mono', primary: '#1e3a8a', accent: '#fbbf24' },
+    { id: 'ink',      name: 'Ink',      family: 'mono', primary: '#0f172a', accent: '#f43f5e' },
 ];
 
 export const DEFAULT_THEME: LandingThemePreset = LANDING_THEME_PRESETS[0];

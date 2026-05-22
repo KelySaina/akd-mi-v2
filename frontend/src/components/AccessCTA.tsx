@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowRight, LogIn, LayoutDashboard, LogOut } from 'lucide-react';
+import { ArrowRight, LogIn, LayoutDashboard, LogOut, Sparkles } from 'lucide-react';
 import { type AuthUser, getStoredUser, getToken, homeForRole, signOut } from '@/lib/auth';
 
 type Variant = 'hero' | 'nav';
@@ -61,13 +61,22 @@ export default function AccessCTA({ variant = 'hero' }: { variant?: Variant }) {
             );
         }
         return (
-            <Link
-                href="/login"
-                className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg bg-white text-ink-900 font-medium text-xs sm:text-sm hover:bg-white/90 transition shadow-lg"
-            >
-                <LogIn className="size-4" />
-                Sign in
-            </Link>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+                <Link
+                    href="/register"
+                    className="hidden sm:inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg glass text-white text-xs sm:text-sm font-medium hover:bg-white/15 transition"
+                >
+                    <Sparkles className="size-4 text-cyan-300" />
+                    Apply now
+                </Link>
+                <Link
+                    href="/login"
+                    className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg bg-white text-ink-900 font-medium text-xs sm:text-sm hover:bg-white/90 transition shadow-lg"
+                >
+                    <LogIn className="size-4" />
+                    Sign in
+                </Link>
+            </div>
         );
     }
 
@@ -88,13 +97,22 @@ export default function AccessCTA({ variant = 'hero' }: { variant?: Variant }) {
         );
     }
     return (
-        <Link
-            href="/login"
-            className="inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-xl bg-grad-brand font-semibold shadow-xl shadow-brand-500/30 hover:scale-[1.02] active:scale-[0.99] transition text-xs sm:text-base"
-        >
-            <LogIn className="size-4" />
-            <span className="hidden sm:inline">Sign in to your space</span><span className="sm:hidden">Sign in</span>
-            <ArrowRight className="size-4" />
-        </Link>
+        <>
+            <Link
+                href="/register"
+                className="inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-xl bg-grad-brand font-semibold shadow-xl shadow-brand-500/30 hover:scale-[1.02] active:scale-[0.99] transition text-xs sm:text-base"
+            >
+                <Sparkles className="size-4" />
+                <span className="hidden sm:inline">Begin your journey</span><span className="sm:hidden">Apply now</span>
+                <ArrowRight className="size-4" />
+            </Link>
+            <Link
+                href="/login"
+                className="inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-xl glass font-medium hover:bg-white/15 transition text-xs sm:text-base"
+            >
+                <LogIn className="size-4" />
+                Sign in
+            </Link>
+        </>
     );
 }

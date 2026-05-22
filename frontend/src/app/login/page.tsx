@@ -117,12 +117,6 @@ function LoginInner() {
               Forgot password?
             </Link>
           </p>
-          <p className="mt-2 text-sm text-ink-500">
-            New here?{' '}
-            <Link href="/register" className="text-brand-700 font-medium hover:underline">
-              Create a student account
-            </Link>
-          </p>
         </div>
       </div>
 

@@ -5,8 +5,9 @@ import { Button } from '@/components/ui';
 import { Check, ExternalLink, Loader2, Palette, Save, Sparkles, Paintbrush } from 'lucide-react';
 import { api } from '@/lib/api';
 import {
-    LANDING_TEMPLATES, type LandingTemplateId,
+    LANDING_TEMPLATES, type LandingTemplateId, type LandingTone,
     LANDING_THEME_PRESETS, type LandingThemePresetId,
+    LANDING_THEME_FAMILIES,
     type LandingThemeSettings,
     resolveTheme, isHex,
 } from '@/components/landing/types';
@@ -187,25 +188,41 @@ export default function SitePage() {
                             <Paintbrush className="size-4" /> Color theme
                         </h3>
                         <div className="rounded-2xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-4 sm:p-5">
-                            <div className="flex flex-wrap gap-2 sm:gap-3 mb-5">
-                                {LANDING_THEME_PRESETS.map((p) => {
-                                    const isSel = preset === p.id;
-                                    return (
-                                        <button
-                                            key={p.id}
-                                            type="button"
-                                            onClick={() => selectPreset(p.id)}
-                                            className={`group flex items-center gap-2 rounded-full pl-1.5 pr-3 py-1.5 border-2 transition ${isSel ? 'border-ink-900 dark:border-ink-100 bg-ink-50 dark:bg-ink-800' : 'border-ink-200 dark:border-ink-800 hover:border-ink-400 dark:hover:border-ink-600'}`}
-                                            title={p.name}
-                                        >
-                                            <span className="flex -space-x-2">
-                                                <span className="size-5 rounded-full ring-2 ring-white dark:ring-ink-900" style={{ background: p.primary }} />
-                                                <span className="size-5 rounded-full ring-2 ring-white dark:ring-ink-900" style={{ background: p.accent }} />
-                                            </span>
-                                            <span className="text-xs sm:text-sm font-medium">{p.name}</span>
-                                        </button>
-                                    );
-                                })}
+                            {LANDING_THEME_FAMILIES.map((fam) => {
+                                const items = LANDING_THEME_PRESETS.filter((p) => p.family === fam.id);
+                                if (items.length === 0) return null;
+                                return (
+                                    <div key={fam.id} className="mb-5 last:mb-0">
+                                        <div className="flex items-baseline gap-2 mb-2">
+                                            <h4 className="text-xs font-bold uppercase tracking-wider text-ink-700 dark:text-ink-200">{fam.name}</h4>
+                                            <span className="text-[11px] text-ink-500 dark:text-ink-400">{fam.description}</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 sm:gap-2.5">
+                                            {items.map((p) => {
+                                                const isSel = preset === p.id;
+                                                return (
+                                                    <button
+                                                        key={p.id}
+                                                        type="button"
+                                                        onClick={() => selectPreset(p.id)}
+                                                        className={`group flex items-center gap-2 rounded-full pl-1.5 pr-3 py-1.5 border-2 transition ${isSel ? 'border-ink-900 dark:border-ink-100 bg-ink-50 dark:bg-ink-800' : 'border-ink-200 dark:border-ink-800 hover:border-ink-400 dark:hover:border-ink-600'}`}
+                                                        title={p.name}
+                                                    >
+                                                        <span className="flex -space-x-2">
+                                                            <span className="size-5 rounded-full ring-2 ring-white dark:ring-ink-900" style={{ background: p.primary }} />
+                                                            <span className="size-5 rounded-full ring-2 ring-white dark:ring-ink-900" style={{ background: p.accent }} />
+                                                        </span>
+                                                        <span className="text-xs sm:text-sm font-medium">{p.name}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+
+                            <div className="mb-1">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-ink-700 dark:text-ink-200 mb-2">Your own</h4>
                                 <button
                                     type="button"
                                     onClick={() => selectPreset('custom')}
@@ -292,7 +309,7 @@ function ColorField({ label, hex, onChange }: { label: string; hex: string; onCh
     );
 }
 
-function ThumbPreview({ tone, primary, accent }: { tone: 'dark' | 'light' | 'mono' | 'editorial' | 'vibrant' | 'corporate'; primary: string; accent: string }) {
+function ThumbPreview({ tone, primary, accent }: { tone: LandingTone; primary: string; accent: string }) {
     const grad = `linear-gradient(135deg, ${primary} 0%, ${primary} 50%, ${accent} 100%)`;
     if (tone === 'dark') {
         return (
@@ -403,28 +420,307 @@ function ThumbPreview({ tone, primary, accent }: { tone: 'dark' | 'light' | 'mon
         );
     }
     // corporate
-    return (
-        <div className="aspect-[16/10] bg-ink-50 relative overflow-hidden border-b border-ink-200">
-            <div className="h-3 bg-ink-900 flex items-center px-2 gap-1">
-                <div className="size-1.5 rounded-full" style={{ background: accent }} />
-                <div className="h-0.5 w-12 rounded bg-white/60" />
+    if (tone === 'corporate') {
+        return (
+            <div className="aspect-[16/10] bg-ink-50 relative overflow-hidden border-b border-ink-200">
+                <div className="h-3 bg-ink-900 flex items-center px-2 gap-1">
+                    <div className="size-1.5 rounded-full" style={{ background: accent }} />
+                    <div className="h-0.5 w-12 rounded bg-white/60" />
+                </div>
+                <div className="p-3 h-full">
+                    <div className="flex items-center gap-2 pb-2 border-b border-ink-200">
+                        <div className="size-3 rounded-sm" style={{ background: primary }} />
+                        <div className="h-1.5 w-16 rounded bg-ink-900" />
+                    </div>
+                    <div className="mt-3 pl-2 border-l-2" style={{ borderColor: primary }}>
+                        <div className="h-1 w-12 rounded mb-1" style={{ background: primary }} />
+                        <div className="h-3 w-28 rounded bg-ink-900" />
+                        <div className="h-1 w-24 rounded bg-ink-500 mt-1.5" />
+                        <div className="h-1 w-20 rounded bg-ink-500 mt-1" />
+                    </div>
+                    <div className="absolute bottom-2 right-2 grid grid-cols-3 gap-1">
+                        <div className="h-1 w-3 rounded" style={{ background: primary }} />
+                        <div className="h-1 w-3 rounded" style={{ background: primary }} />
+                        <div className="h-1 w-3 rounded" style={{ background: primary }} />
+                    </div>
+                </div>
             </div>
-            <div className="p-3 h-full">
-                <div className="flex items-center gap-2 pb-2 border-b border-ink-200">
-                    <div className="size-3 rounded-sm" style={{ background: primary }} />
-                    <div className="h-1.5 w-16 rounded bg-ink-900" />
+        );
+    }
+    if (tone === 'academic') {
+        return (
+            <div className="aspect-[16/10] bg-[#fbf8f1] relative overflow-hidden" style={{ fontFamily: 'serif' }}>
+                <div className="absolute inset-x-3 top-2 border-b-2 border-double" style={{ borderColor: primary, opacity: 0.5 }} />
+                <div className="p-3 h-full flex flex-col items-center text-center justify-center">
+                    <div className="size-5 rounded-full ring-2 ring-amber-400/50" style={{ background: primary }} />
+                    <div className="mt-2 h-2 w-1 rounded" style={{ background: primary, height: '0.5rem' }} />
+                    <div className="flex items-center gap-1 mt-1">
+                        <div className="h-px w-4" style={{ background: primary }} />
+                        <div className="h-1 w-10 rounded bg-ink-900" />
+                        <div className="h-px w-4" style={{ background: primary }} />
+                    </div>
+                    <div className="mt-2 h-3 w-32 rounded bg-ink-900" />
+                    <div className="mt-1.5 h-1 w-20 rounded italic bg-ink-500" />
                 </div>
-                <div className="mt-3 pl-2 border-l-2" style={{ borderColor: primary }}>
-                    <div className="h-1 w-12 rounded mb-1" style={{ background: primary }} />
-                    <div className="h-3 w-28 rounded bg-ink-900" />
-                    <div className="h-1 w-24 rounded bg-ink-500 mt-1.5" />
-                    <div className="h-1 w-20 rounded bg-ink-500 mt-1" />
+                <div className="absolute inset-x-3 bottom-2 border-t-2 border-double" style={{ borderColor: primary, opacity: 0.5 }} />
+            </div>
+        );
+    }
+    if (tone === 'tech') {
+        return (
+            <div className="aspect-[16/10] bg-[#0a0f1c] relative overflow-hidden">
+                <div
+                    className="absolute inset-0 opacity-40"
+                    style={{
+                        backgroundImage: 'linear-gradient(rgba(16,185,129,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,0.18) 1px, transparent 1px)',
+                        backgroundSize: '12px 12px',
+                    }}
+                />
+                <div className="relative p-3 h-full flex flex-col text-emerald-300">
+                    <div className="flex items-center gap-1">
+                        <div className="size-2 rounded-full bg-red-500/70" />
+                        <div className="size-2 rounded-full bg-amber-400/70" />
+                        <div className="size-2 rounded-full bg-emerald-500/70" />
+                    </div>
+                    <div className="mt-2 space-y-1.5 font-mono text-[8px]">
+                        <div className="flex items-center gap-1"><span className="text-emerald-500">$</span><div className="h-1 w-14 rounded bg-emerald-400/70" /></div>
+                        <div className="h-1 w-20 rounded bg-emerald-300/40" />
+                        <div className="flex items-center gap-1"><span className="text-emerald-500">$</span><div className="h-1 w-10 rounded bg-emerald-400/70" /></div>
+                    </div>
+                    <div className="mt-auto">
+                        <div className="h-3 w-32 rounded bg-emerald-400" />
+                        <div className="flex items-center gap-1 mt-1.5">
+                            <div className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <div className="h-1 w-8 rounded bg-emerald-300/60" />
+                        </div>
+                    </div>
                 </div>
-                <div className="absolute bottom-2 right-2 grid grid-cols-3 gap-1">
-                    <div className="h-1 w-3 rounded" style={{ background: primary }} />
-                    <div className="h-1 w-3 rounded" style={{ background: primary }} />
-                    <div className="h-1 w-3 rounded" style={{ background: primary }} />
+            </div>
+        );
+    }
+    if (tone === 'art') {
+        return (
+            <div className="aspect-[16/10] bg-stone-50 relative overflow-hidden border-b border-stone-900">
+                <div className="p-3 h-full grid grid-cols-12 gap-2">
+                    <div className="col-span-7 flex flex-col">
+                        <div className="h-1 w-10 bg-stone-500" />
+                        <div className="mt-auto space-y-0.5">
+                            <div className="h-3 w-20 bg-stone-900" />
+                            <div className="h-3 w-16 bg-stone-900" />
+                            <div className="h-3 w-24" style={{ background: accent }} />
+                        </div>
+                    </div>
+                    <div className="col-span-5" style={{ background: primary }} />
                 </div>
+                <div className="absolute bottom-0 inset-x-0 h-3 grid grid-cols-4 divide-x divide-stone-900 border-t border-stone-900">
+                    <div /><div /><div /><div />
+                </div>
+            </div>
+        );
+    }
+    if (tone === 'boutique') {
+        return (
+            <div className="aspect-[16/10] bg-white relative overflow-hidden">
+                <div className="h-2" style={{ background: grad }} />
+                <div className="p-3 h-full">
+                    <div className="flex items-center gap-1.5">
+                        <div className="size-3 rounded-full" style={{ background: grad }} />
+                        <div className="h-1 w-10 rounded bg-ink-900" />
+                        <div className="ml-auto h-1.5 w-8 rounded-full" style={{ background: primary }} />
+                    </div>
+                    <div className="mt-2 grid grid-cols-3 gap-1">
+                        <div className="rounded border border-ink-200 p-1">
+                            <div className="aspect-square rounded" style={{ background: `${primary}33` }} />
+                            <div className="mt-1 h-0.5 w-6 rounded bg-ink-900" />
+                        </div>
+                        <div className="rounded border border-ink-200 p-1">
+                            <div className="aspect-square rounded" style={{ background: `${accent}33` }} />
+                            <div className="mt-1 h-0.5 w-5 rounded bg-ink-900" />
+                        </div>
+                        <div className="rounded border border-ink-200 p-1">
+                            <div className="aspect-square rounded" style={{ background: `${primary}44` }} />
+                            <div className="mt-1 h-0.5 w-6 rounded bg-ink-900" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    if (tone === 'salon') {
+        return (
+            <div className="aspect-[16/10] relative overflow-hidden bg-[#fdf7f3]" style={{ fontFamily: 'serif' }}>
+                <div className="absolute -top-6 -right-6 size-20 rounded-full bg-rose-200/60 blur-2xl" />
+                <div className="absolute -bottom-8 -left-8 size-24 rounded-full bg-amber-200/60 blur-2xl" />
+                <div className="relative p-3 h-full flex flex-col">
+                    <div className="flex items-center gap-1.5">
+                        <div className="size-3 rounded-full ring-2 ring-amber-300/60" style={{ background: grad }} />
+                        <div className="h-1 w-10 rounded bg-[#3c2a1f]" />
+                    </div>
+                    <div className="mt-auto">
+                        <div className="h-2.5 w-24 rounded bg-[#3c2a1f]" />
+                        <div className="h-2.5 w-16 rounded italic" style={{ background: primary, opacity: 0.85 }} />
+                        <div className="mt-1.5 flex gap-1">
+                            <div className="h-3 w-10 rounded-full" style={{ background: grad }} />
+                            <div className="h-3 w-10 rounded-full bg-white border border-rose-200" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    if (tone === 'kids') {
+        return (
+            <div className="aspect-[16/10] bg-sky-50 relative overflow-hidden">
+                <div className="absolute -top-4 -left-4 size-16 rounded-full bg-yellow-300/60 blur-xl" />
+                <div className="absolute top-6 -right-6 size-20 rounded-full bg-pink-300/60 blur-xl" />
+                <div className="absolute -bottom-6 left-10 size-16 rounded-full bg-emerald-300/60 blur-xl" />
+                <div className="relative p-3 h-full flex flex-col">
+                    <div className="flex items-center gap-1.5 rounded-full bg-white px-2 py-1 self-start shadow">
+                        <div className="size-2.5 rounded-full" style={{ background: grad }} />
+                        <div className="h-1 w-8 rounded bg-ink-900" />
+                    </div>
+                    <div className="mt-auto">
+                        <div className="h-3 w-20 rounded bg-pink-500" />
+                        <div className="h-3 w-16 rounded bg-sky-500 mt-0.5" />
+                        <div className="mt-2 grid grid-cols-4 gap-1">
+                            <div className="h-3 rounded-xl bg-yellow-300" />
+                            <div className="h-3 rounded-xl bg-pink-300" />
+                            <div className="h-3 rounded-xl bg-sky-300" />
+                            <div className="h-3 rounded-xl bg-emerald-300" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    if (tone === 'culinary') {
+        return (
+            <div className="aspect-[16/10] bg-[#fbf4e8] relative overflow-hidden" style={{ fontFamily: 'Georgia, serif' }}>
+                <div className="p-3 h-full grid grid-cols-2 gap-2">
+                    <div className="flex flex-col">
+                        <div className="size-3 rounded-full bg-[#3c2415] mb-2" />
+                        <div className="mt-auto space-y-1">
+                            <div className="h-1 w-8 rounded bg-[#b07a3e]" />
+                            <div className="h-3 w-20 rounded bg-[#3c2415]" />
+                            <div className="h-1 w-14 rounded italic" style={{ background: primary, opacity: 0.7 }} />
+                        </div>
+                    </div>
+                    <div className="rounded-xl bg-[#b07a3e] grid place-items-center text-[#fbf4e8]">
+                        <div className="size-6 rounded-full ring-2 ring-amber-300/60" style={{ background: grad }} />
+                    </div>
+                </div>
+                <div className="absolute bottom-0 inset-x-0 h-2 bg-[#3c2415]" />
+            </div>
+        );
+    }
+    if (tone === 'sports') {
+        return (
+            <div className="aspect-[16/10] bg-ink-950 relative overflow-hidden">
+                <div
+                    className="absolute inset-0 opacity-10 text-white"
+                    style={{ backgroundImage: 'repeating-linear-gradient(-45deg, currentColor 0 2px, transparent 2px 12px)' }}
+                />
+                <div className="relative p-3 h-full flex flex-col text-white">
+                    <div className="text-[8px] uppercase tracking-[0.3em] text-amber-400">No excuses</div>
+                    <div className="mt-1 leading-none font-black uppercase">
+                        <div className="text-base">TRAIN.</div>
+                        <div className="text-base">COMPETE.</div>
+                        <div className="text-base text-amber-400">CONQUER.</div>
+                    </div>
+                    <div className="mt-auto flex items-center gap-1.5">
+                        <div className="h-3 w-10 rounded bg-amber-400" />
+                        <div className="h-3 w-10 rounded border border-amber-400" />
+                    </div>
+                </div>
+                <div className="absolute bottom-0 inset-x-0 h-1 bg-amber-400" />
+            </div>
+        );
+    }
+    if (tone === 'music') {
+        return (
+            <div className="aspect-[16/10] bg-[#0a0612] relative overflow-hidden">
+                <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 70% 50% at 50% 0%, rgba(244,114,182,0.25), transparent 60%), radial-gradient(ellipse 50% 40% at 80% 100%, rgba(168,85,247,0.25), transparent 60%)' }} />
+                <div className="relative p-3 h-full grid grid-cols-2 gap-2">
+                    <div className="flex flex-col text-white">
+                        <div className="text-[8px] uppercase tracking-wider text-pink-300">Now playing</div>
+                        <div className="mt-auto">
+                            <div className="h-2.5 w-16 rounded bg-white" />
+                            <div className="h-2.5 w-12 rounded mt-0.5" style={{ background: 'linear-gradient(90deg, #f472b6, #a78bfa, #67e8f9)' }} />
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-center">
+                        <div className="relative size-14 rounded-full bg-black border border-white/20" style={{ background: 'repeating-radial-gradient(circle at center, #18121e 0 2px, #0a0612 2px 4px)' }}>
+                            <div className="absolute inset-0 m-auto size-5 rounded-full" style={{ background: grad }} />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    if (tone === 'language') {
+        return (
+            <div className="aspect-[16/10] bg-white relative overflow-hidden">
+                <div className="p-3 h-full grid grid-cols-2 gap-2">
+                    <div className="flex flex-col">
+                        <div className="size-3 rounded-lg" style={{ background: grad }} />
+                        <div className="mt-auto leading-tight">
+                            <div className="text-sm font-extrabold">Hello.</div>
+                            <div className="text-sm font-extrabold text-sky-600">Bonjour.</div>
+                            <div className="text-sm font-extrabold text-indigo-600">Hola.</div>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1 content-center">
+                        <div className="aspect-square rounded bg-sky-100 grid place-items-center text-[10px]">🇬🇧</div>
+                        <div className="aspect-square rounded bg-indigo-100 grid place-items-center text-[10px]">🇫🇷</div>
+                        <div className="aspect-square rounded bg-pink-100 grid place-items-center text-[10px]">🇪🇸</div>
+                        <div className="aspect-square rounded bg-sky-100 grid place-items-center text-[10px]">🇯🇵</div>
+                        <div className="aspect-square rounded bg-indigo-100 grid place-items-center text-[10px]">🇩🇪</div>
+                        <div className="aspect-square rounded bg-pink-100 grid place-items-center text-[10px]">🇮🇹</div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    if (tone === 'medical') {
+        return (
+            <div className="aspect-[16/10] bg-gradient-to-b from-teal-50 to-white relative overflow-hidden">
+                <div className="p-3 h-full flex flex-col">
+                    <div className="flex items-center gap-1.5">
+                        <div className="size-3 rounded-md bg-teal-500 grid place-items-center text-white">
+                            <span className="text-[8px] font-black">+</span>
+                        </div>
+                        <div className="h-1 w-10 rounded bg-slate-900" />
+                    </div>
+                    <div className="mt-auto">
+                        <div className="h-2.5 w-20 rounded bg-slate-900" />
+                        <div className="h-2.5 w-14 rounded bg-teal-500 mt-0.5" />
+                        <svg className="mt-2 h-4 w-full text-teal-500" viewBox="0 0 200 20" fill="none" preserveAspectRatio="none">
+                            <path d="M0 10 L60 10 L70 3 L80 17 L90 10 L120 10 L130 1 L140 19 L150 10 L200 10" stroke="currentColor" strokeWidth="1.5" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    // agri
+    return (
+        <div className="aspect-[16/10] bg-[#f5f3e7] relative overflow-hidden">
+            <div className="absolute -top-6 -right-6 size-20 rounded-full bg-amber-300/40 blur-2xl" />
+            <div className="absolute -bottom-8 -left-6 size-24 rounded-full bg-emerald-400/40 blur-2xl" />
+            <div className="relative p-3 h-full grid grid-cols-2 gap-2">
+                <div className="flex flex-col">
+                    <div className="size-3 rounded-full bg-emerald-700" />
+                    <div className="mt-auto">
+                        <div className="h-2.5 w-20 rounded bg-emerald-800" />
+                        <div className="h-2.5 w-16 rounded italic bg-amber-700 mt-0.5" />
+                    </div>
+                </div>
+                <div className="rounded-2xl bg-gradient-to-br from-emerald-500 to-amber-600" />
+            </div>
+            <div className="absolute bottom-1.5 left-3 right-3 flex gap-1">
+                <div className="h-1 flex-1 rounded bg-emerald-700/40" />
+                <div className="h-1 flex-1 rounded bg-emerald-700/40" />
+                <div className="h-1 flex-1 rounded bg-emerald-700/40" />
             </div>
         </div>
     );

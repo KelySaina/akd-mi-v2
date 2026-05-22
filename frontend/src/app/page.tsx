@@ -4,6 +4,18 @@ import MinimalLanding from '@/components/landing/MinimalLanding';
 import EditorialLanding from '@/components/landing/EditorialLanding';
 import VibrantLanding from '@/components/landing/VibrantLanding';
 import CorporateLanding from '@/components/landing/CorporateLanding';
+import AcademicLanding from '@/components/landing/AcademicLanding';
+import TechLanding from '@/components/landing/TechLanding';
+import ArtLanding from '@/components/landing/ArtLanding';
+import BoutiqueLanding from '@/components/landing/BoutiqueLanding';
+import SalonLanding from '@/components/landing/SalonLanding';
+import KidsLanding from '@/components/landing/KidsLanding';
+import CulinaryLanding from '@/components/landing/CulinaryLanding';
+import SportsLanding from '@/components/landing/SportsLanding';
+import MusicLanding from '@/components/landing/MusicLanding';
+import LanguageLanding from '@/components/landing/LanguageLanding';
+import MedicalLanding from '@/components/landing/MedicalLanding';
+import AgriLanding from '@/components/landing/AgriLanding';
 import {
     CATEGORY_LABEL, type Institution, type LandingTemplateId,
     resolveTheme, themeStyle, LANDING_THEME_PRESETS, isHex,
@@ -23,7 +35,11 @@ async function getInstitution(): Promise<Institution | null> {
     }
 }
 
-const TEMPLATE_IDS: LandingTemplateId[] = ['classic', 'modern', 'minimal', 'editorial', 'vibrant', 'corporate'];
+const TEMPLATE_IDS: LandingTemplateId[] = [
+    'classic', 'modern', 'minimal', 'editorial', 'vibrant', 'corporate',
+    'academic', 'tech', 'art', 'boutique', 'salon', 'kids',
+    'culinary', 'sports', 'music', 'language', 'medical', 'agri',
+];
 
 function pickTemplate(id?: string): LandingTemplateId {
     return (TEMPLATE_IDS as string[]).includes(id ?? '') ? (id as LandingTemplateId) : 'classic';
@@ -63,5 +79,17 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
     if (tplId === 'editorial') return wrap(<EditorialLanding {...props} />);
     if (tplId === 'vibrant')   return wrap(<VibrantLanding   {...props} />);
     if (tplId === 'corporate') return wrap(<CorporateLanding {...props} />);
+    if (tplId === 'academic')  return wrap(<AcademicLanding  {...props} />);
+    if (tplId === 'tech')      return wrap(<TechLanding      {...props} />);
+    if (tplId === 'art')       return wrap(<ArtLanding       {...props} />);
+    if (tplId === 'boutique')  return wrap(<BoutiqueLanding  {...props} />);
+    if (tplId === 'salon')     return wrap(<SalonLanding     {...props} />);
+    if (tplId === 'kids')      return wrap(<KidsLanding      {...props} />);
+    if (tplId === 'culinary')  return wrap(<CulinaryLanding  {...props} />);
+    if (tplId === 'sports')    return wrap(<SportsLanding    {...props} />);
+    if (tplId === 'music')     return wrap(<MusicLanding     {...props} />);
+    if (tplId === 'language')  return wrap(<LanguageLanding  {...props} />);
+    if (tplId === 'medical')   return wrap(<MedicalLanding   {...props} />);
+    if (tplId === 'agri')      return wrap(<AgriLanding      {...props} />);
     return wrap(<ClassicLanding {...props} />);
 }
