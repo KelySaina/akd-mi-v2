@@ -63,3 +63,36 @@ export async function instanceDirExists(slug: string): Promise<boolean> {
         return s.isDirectory();
     } catch { return false; }
 }
+
+/** Return every slug under `instances/` that has a `.env` file (so it was actually initialised). */
+export async function listInstanceDirs(): Promise<string[]> {
+    const root = path.join(projectDir(), 'instances');
+    let entries: string[];
+    try { entries = await fs.readdir(root); }
+    catch { return []; }
+    const out: string[] = [];
+    for (const name of entries) {
+        if (!SLUG_RE.test(name)) continue;
+        try {
+            const st = await fs.stat(path.join(root, name));
+            if (!st.isDirectory()) continue;
+            const envSt = await fs.stat(path.join(root, name, '.env'));
+            if (envSt.isFile()) out.push(name);
+        } catch { /* skip */ }
+    }
+    return out.sort();
+}
+
+/** True iff at least one container labelled with this instance's compose project is up. */
+export async function isInstanceRunning(slug: string): Promise<boolean> {
+    if (!SLUG_RE.test(slug)) return false;
+    return new Promise((resolve) => {
+        const child = spawn('docker', [
+            'ps', '--filter', `label=com.docker.compose.project=akdmi-${slug}`, '--format', '{{.ID}}',
+        ]);
+        let out = '';
+        child.stdout.on('data', (d) => { out += d.toString(); });
+        child.on('error', () => resolve(false));
+        child.on('close', () => resolve(out.trim().length > 0));
+    });
+}

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageHeader, StatusBadge, Button } from '@/components/AdminShell';
 import { useConfirm, useNotify } from '@/components/Dialogs';
-import { Plus, Search, RefreshCw, Trash2, Play, Square, ExternalLink, Globe2 } from 'lucide-react';
+import { Plus, Search, RefreshCw, Trash2, Play, Square, ExternalLink, Globe2, DownloadCloud } from 'lucide-react';
 
 type Instance = {
     id: string;
@@ -32,6 +32,29 @@ export default function InstancesListPage() {
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [activeJobIds, setActiveJobIds] = useState<Set<string>>(new Set());
     const prevActiveRef = useRef<Set<string>>(new Set());
+    const [importing, setImporting] = useState(false);
+
+    async function importExisting() {
+        setImporting(true); setError(null);
+        try {
+            const r = await fetch('/api/admin/instances/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            });
+            const j = await r.json();
+            if (!r.ok) throw new Error(j.error ?? r.statusText);
+            const created = (j.imported ?? []).filter((x: any) => x.action === 'created').length;
+            const updated = (j.imported ?? []).filter((x: any) => x.action === 'updated').length;
+            const errs    = (j.errors ?? []).length;
+            notify(errs ? 'error' : 'success',
+                `Imported ${created} new, refreshed ${updated}${errs ? `, ${errs} error(s)` : ''}.`,
+                { title: 'Import from disk' });
+            await refresh();
+        } catch (e: any) {
+            notify('error', e.message, { title: 'Import failed' });
+        } finally { setImporting(false); }
+    }
 
     const refresh = useCallback(async () => {
         setRefreshing(true); setError(null);
@@ -140,6 +163,10 @@ export default function InstancesListPage() {
                         <Button variant="outline" onClick={refresh} disabled={refreshing}>
                             <RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />
                             {refreshing ? 'Refreshing…' : 'Refresh'}
+                        </Button>
+                        <Button variant="outline" onClick={importExisting} disabled={importing} title="Scan instances/ on disk and register any missing rows in the portal DB">
+                            <DownloadCloud className={`size-4 ${importing ? 'animate-pulse' : ''}`} />
+                            {importing ? 'Importing…' : 'Import existing'}
                         </Button>
                         <Link href="/admin/instances/new"><Button><Plus className="size-4" /> New</Button></Link>
                     </div>
