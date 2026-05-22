@@ -26,11 +26,22 @@ for i in {1..30}; do
     [[ $i -eq 30 ]] && { err "Database did not become ready in time"; exit 1; }
 done
 
-step "Running migrations"
-if ! compose_cmd "$SLUG" exec -T api npx prisma migrate deploy 2>/dev/null; then
-    warn "No migrations found; using 'prisma db push' to sync schema"
-    compose_cmd "$SLUG" exec -T api npx prisma db push --skip-generate --accept-data-loss || warn "Schema sync failed (continuing)"
+step "Syncing database schema"
+# Prefer migrate deploy when migrations exist, otherwise fall back to db push.
+# Either path MUST succeed before we try to seed.
+if compose_cmd "$SLUG" exec -T api test -d prisma/migrations; then
+    if ! compose_cmd "$SLUG" exec -T api npx prisma migrate deploy; then
+        err "prisma migrate deploy failed"
+        exit 1
+    fi
+else
+    info "No prisma/migrations directory — using 'prisma db push' to sync schema"
+    if ! compose_cmd "$SLUG" exec -T api npx prisma db push --skip-generate --accept-data-loss; then
+        err "prisma db push failed — database schema not created"
+        exit 1
+    fi
 fi
+ok "Schema in sync"
 
 # Seed only on first start
 INSTANCE_DIR="$INSTANCES_DIR/$SLUG"
