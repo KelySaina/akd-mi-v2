@@ -26,12 +26,11 @@ COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 COPY --from=build /app/prisma ./prisma
-COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
-# Ship the Prisma CLI + query engines so the entrypoint can sync the schema
-# on every boot (the portal has no migration files; schema is the source of truth).
-COPY --from=build /app/node_modules/prisma ./node_modules/prisma
-COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=build /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+# Ship the full node_modules from the build stage so the Prisma CLI (and its
+# transitive deps) are available at runtime for the entrypoint's `db push`.
+# Next.js standalone already inlines what the server needs into ./node_modules,
+# but we overwrite that with the complete tree (a superset).
+COPY --from=build /app/node_modules ./node_modules
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 EXPOSE 3000
