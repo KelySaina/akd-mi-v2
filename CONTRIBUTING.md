@@ -48,6 +48,39 @@ npx prisma migrate dev
 npm run dev
 ```
 
+## Testing
+
+- Write tests for new features and bug fixes
+- Run existing tests before submitting a PR
+
+### Backend Tests
+
+```bash
+cd backend
+npm test
+```
+
+### Frontend Tests
+
+```bash
+cd frontend
+npm test
+```
+
+### Running All Tests
+
+```bash
+# From the root directory
+npm test --workspaces
+```
+
+### Writing Tests
+
+- Place test files next to the source file with a `.test.ts` or `.spec.ts` suffix
+- Use descriptive test names that explain the expected behavior
+- Mock external dependencies (database, APIs, etc.)
+- Aim for meaningful coverage of critical paths
+
 ## Code Style
 
 - Use TypeScript for all new code
