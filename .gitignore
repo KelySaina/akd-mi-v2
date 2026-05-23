@@ -13,3 +13,6 @@ build/
 .akd-mi-*.tmp
 .akd-mi-*.pid
 git-credential-manager/
+
+# Private funding drafts — keep proposals out of the public repo
+docs/funding/
