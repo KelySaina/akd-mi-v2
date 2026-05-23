@@ -55,6 +55,9 @@ jobs:
       - name: Typecheck/build
         working-directory: backend
         run: npm run build
+      - name: Test
+        working-directory: backend
+        run: npm test
 
   frontend:
     needs: changes
