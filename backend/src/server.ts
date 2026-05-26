@@ -26,6 +26,7 @@ import { storageRoutes } from './modules/storage/storage.routes.js';
 import { passwordResetRoutes, forgotPasswordRoutes } from './modules/password-resets/password-reset.routes.js';
 import { notificationRoutes } from './modules/notifications/notification.routes.js';
 import { messagingRoutes } from './modules/messaging/messaging.routes.js';
+import { activityRoutes } from './modules/activity/activity.routes.js';
 import { realtimeRoutes } from './realtime/realtime.routes.js';
 
 export async function buildApp() {
@@ -99,6 +100,7 @@ export async function buildApp() {
     await app.register(passwordResetRoutes, { prefix: '/api/v1/password-resets' });
     await app.register(notificationRoutes, { prefix: '/api/v1/notifications' });
     await app.register(messagingRoutes,   { prefix: '/api/v1/messaging' });
+    await app.register(activityRoutes,    { prefix: '/api/v1/activity' });
     await app.register(realtimeRoutes,    { prefix: '/api/v1/ws' });
 
     await connectDb();

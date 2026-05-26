@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../config/prisma.js';
 import { authenticate, requireRole } from '../../common/auth.js';
 import { handleError } from '../../common/errors.js';
+import { logAudit } from '../../common/audit.js';
 
 const GradeBody = z.object({
     enrollmentId: z.string(),
@@ -91,10 +92,13 @@ export async function gradeRoutes(app: FastifyInstance) {
     app.delete('/:id', { preHandler: requireRole('INSTANCE_ADMIN', 'MANAGER', 'TEACHER') }, async (req, reply) => {
         try {
             const { id } = req.params as { id: string };
-            const existing = await prisma.grade.findUnique({ where: { id }, select: { enrollmentId: true } });
+            const existing = await prisma.grade.findUnique({ where: { id }, select: { enrollmentId: true, assessment: true, score: true, maxScore: true } });
             if (!existing) return reply.code(404).send({ error: 'NotFound' });
             if (!(await ensureTeacherOwnsEnrollment(req, reply, existing.enrollmentId))) return;
             await prisma.grade.delete({ where: { id } });
+            logAudit(req, 'grade.deleted', 'grade', id, {
+                assessment: existing.assessment, score: existing.score, maxScore: existing.maxScore,
+            });
             return reply.code(204).send();
         } catch (err) { return handleError(reply, err); }
     });

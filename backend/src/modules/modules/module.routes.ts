@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../config/prisma.js';
 import { authenticate, requireRole } from '../../common/auth.js';
 import { handleError } from '../../common/errors.js';
+import { logAudit } from '../../common/audit.js';
 
 const AVAILABLE = [
     'courses', 'students', 'teachers', 'grades',
@@ -32,11 +33,18 @@ export async function moduleRoutes(app: FastifyInstance) {
             const body = ToggleBody.parse(req.body);
             const inst = await prisma.institution.findFirst();
             if (!inst) return reply.code(400).send({ error: 'NoInstitution' });
+            const prev = await prisma.institutionModule.findUnique({
+                where: { institutionId_moduleKey: { institutionId: inst.id, moduleKey: body.moduleKey } },
+                select: { enabled: true },
+            });
             const m = await prisma.institutionModule.upsert({
                 where: { institutionId_moduleKey: { institutionId: inst.id, moduleKey: body.moduleKey } },
                 update: { enabled: body.enabled, config: body.config ?? {} },
                 create: { institutionId: inst.id, moduleKey: body.moduleKey, enabled: body.enabled, config: body.config ?? {} },
             });
+            if (!prev || prev.enabled !== body.enabled) {
+                logAudit(req, body.enabled ? 'module.enabled' : 'module.disabled', 'module', body.moduleKey, { moduleKey: body.moduleKey, enabled: body.enabled });
+            }
             return m;
         } catch (err) { return handleError(reply, err); }
     });

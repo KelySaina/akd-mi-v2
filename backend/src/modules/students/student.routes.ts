@@ -4,6 +4,7 @@ import { prisma } from '../../config/prisma.js';
 import { authenticate, requireRole, hasRole } from '../../common/auth.js';
 import { PaginationQuery, skipTake } from '../../common/pagination.js';
 import { handleError } from '../../common/errors.js';
+import { logAudit } from '../../common/audit.js';
 import { hashPassword } from '../auth/auth.service.js';
 
 const CreateStudent = z.object({
@@ -90,6 +91,11 @@ export async function studentRoutes(app: FastifyInstance) {
                 });
             });
 
+            logAudit(req, 'student.approved', 'student', id, {
+                name: existing.user?.name,
+                studentNumber,
+            });
+
             return { student: updated, generatedPassword: password };
         } catch (err) { return handleError(reply, err); }
     });
@@ -98,13 +104,14 @@ export async function studentRoutes(app: FastifyInstance) {
     app.post('/:id/reject', { preHandler: requireRole('INSTANCE_ADMIN', 'MANAGER') }, async (req, reply) => {
         try {
             const { id } = req.params as { id: string };
-            const existing = await prisma.student.findUnique({ where: { id } });
+            const existing = await prisma.student.findUnique({ where: { id }, include: { user: { select: { name: true } } } });
             if (!existing) return reply.code(404).send({ error: 'NotFound' });
             if (existing.status !== 'pending') return reply.code(409).send({ error: 'NotPending' });
             await prisma.$transaction(async (tx) => {
                 await tx.student.delete({ where: { id } });
                 await tx.user.delete({ where: { id: existing.userId } });
             });
+            logAudit(req, 'student.rejected', 'student', id, { name: existing.user?.name });
             return reply.code(204).send();
         } catch (err) { return handleError(reply, err); }
     });
@@ -211,7 +218,10 @@ export async function studentRoutes(app: FastifyInstance) {
         try {
             const { id } = req.params as { id: string };
             const body = UpdateStudent.parse(req.body);
-            const existing = await prisma.student.findUnique({ where: { id } });
+            const existing = await prisma.student.findUnique({
+                where: { id },
+                include: { user: { select: { isActive: true, name: true } } },
+            });
             if (!existing) return reply.code(404).send({ error: 'NotFound' });
 
             const updated = await prisma.$transaction(async (tx) => {
@@ -243,6 +253,21 @@ export async function studentRoutes(app: FastifyInstance) {
                 });
             });
 
+            const studentName = existing.user?.name ?? body.name ?? 'Student';
+            if (body.status !== undefined && body.status !== existing.status) {
+                logAudit(req, 'student.status.changed', 'student', id, {
+                    name: studentName,
+                    from: existing.status,
+                    to: body.status,
+                });
+            }
+            if (body.isActive !== undefined && existing.user && existing.user.isActive !== body.isActive) {
+                logAudit(req, body.isActive ? 'student.activated' : 'student.deactivated', 'student', id, {
+                    name: studentName,
+                    isActive: body.isActive,
+                });
+            }
+
             return updated;
         } catch (err) { return handleError(reply, err); }
     });
@@ -250,7 +275,14 @@ export async function studentRoutes(app: FastifyInstance) {
     app.delete('/:id', { preHandler: requireRole('INSTANCE_ADMIN') }, async (req, reply) => {
         try {
             const { id } = req.params as { id: string };
+            const existing = await prisma.student.findUnique({
+                where: { id },
+                include: { user: { select: { name: true } } },
+            });
             await prisma.student.delete({ where: { id } });
+            logAudit(req, 'student.deleted', 'student', id, {
+                name: existing?.user?.name, studentNumber: existing?.studentNumber,
+            });
             return reply.code(204).send();
         } catch (err) { return handleError(reply, err); }
     });

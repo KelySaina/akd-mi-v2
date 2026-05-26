@@ -6,6 +6,7 @@ import {
   LayoutDashboard, Users, GraduationCap, BookOpen,
   Calendar, FileBarChart, Settings, ChevronRight, ChevronDown,
   Image as ImageIcon, ClipboardList, KeyRound, LogOut, ToggleRight, MessageSquare,
+  Activity,
 } from 'lucide-react';
 import { MobileSidebarShell } from './MobileSidebarShell';
 import { useAuth } from '@/lib/auth';
@@ -52,6 +53,7 @@ const groups: NavGroup[] = [
     id: 'operations',
     label: 'Operations',
     items: [
+      { href: '/admin/activity', label: 'Activity', icon: Activity },
       { href: '/admin/requests', label: 'Requests', icon: KeyRound },
       { href: '/admin/messages', label: 'Messages', icon: MessageSquare, moduleKey: 'messaging' },
       { href: '/admin/reports',  label: 'Reports',  icon: FileBarChart, moduleKey: 'reports' },

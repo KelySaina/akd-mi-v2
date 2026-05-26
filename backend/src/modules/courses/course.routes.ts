@@ -4,6 +4,7 @@ import { prisma } from '../../config/prisma.js';
 import { authenticate, requireRole, hasRole } from '../../common/auth.js';
 import { PaginationQuery, skipTake } from '../../common/pagination.js';
 import { handleError } from '../../common/errors.js';
+import { logAudit } from '../../common/audit.js';
 
 const CourseBody = z.object({
     code: z.string().min(1),
@@ -128,14 +129,23 @@ export async function courseRoutes(app: FastifyInstance) {
         try {
             const { id } = req.params as { id: string };
             const body = CourseBody.partial().parse(req.body);
-            return await prisma.course.update({ where: { id }, data: body, include: includeCourse });
+            const before = await prisma.course.findUnique({ where: { id }, select: { isActive: true, code: true, title: true } });
+            const updated = await prisma.course.update({ where: { id }, data: body, include: includeCourse });
+            if (before && body.isActive !== undefined && before.isActive !== body.isActive) {
+                logAudit(req, body.isActive ? 'course.activated' : 'course.deactivated', 'course', id, {
+                    code: before.code, title: before.title, isActive: body.isActive,
+                });
+            }
+            return updated;
         } catch (err) { return handleError(reply, err); }
     });
 
     app.delete('/:id', { preHandler: requireRole('INSTANCE_ADMIN', 'MANAGER') }, async (req, reply) => {
         try {
             const { id } = req.params as { id: string };
+            const existing = await prisma.course.findUnique({ where: { id }, select: { code: true, title: true } });
             await prisma.course.delete({ where: { id } });
+            logAudit(req, 'course.deleted', 'course', id, existing ?? undefined);
             return reply.code(204).send();
         } catch (err) { return handleError(reply, err); }
     });

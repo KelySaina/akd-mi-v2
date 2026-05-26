@@ -1,9 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Topbar } from '@/components/Topbar';
 import { Users, GraduationCap, BookOpen, FileBarChart, ArrowUpRight, Activity } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { formatRelative, type ActivityItem } from '@/lib/activity';
 
 type Stats = {
   users?: number;
@@ -16,6 +18,8 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState<Stats>({});
   const [loading, setLoading] = useState(true);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [activityLoading, setActivityLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -35,6 +39,16 @@ export default function Dashboard() {
       } finally {
         setLoading(false);
       }
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await api.get<{ items: ActivityItem[] }>('/activity?limit=4');
+        setActivity(r.items ?? []);
+      } catch { /* ignore */ }
+      finally { setActivityLoading(false); }
     })();
   }, []);
 
@@ -85,27 +99,45 @@ export default function Dashboard() {
           <div className="lg:col-span-2 rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold">Recent activity</h3>
-              <button className="text-sm text-brand-700 dark:text-brand-400 hover:underline">View all</button>
+              <Link href="/admin/activity" className="text-sm text-brand-700 dark:text-brand-400 hover:underline">View all</Link>
             </div>
-            <ul className="space-y-3">
-              {[
-                ['New student enrolled', 'Jane D. joined Computer Science', '2m ago'],
-                ['Grade published', 'Algebra 101 — midterm', '12m ago'],
-                ['Course updated', 'Linguistics syllabus revised', '1h ago'],
-                ['Teacher added', 'Mr. Lewis (Physics)', '3h ago'],
-              ].map(([t, sub, when], i) => (
-                <li key={i} className="flex items-start gap-3 py-2">
-                  <div className="size-8 rounded-full bg-brand-100 dark:bg-brand-500/15 text-brand-700 dark:text-brand-300 grid place-items-center mt-0.5">
-                    <Activity className="size-4" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">{t}</div>
-                    <div className="text-sm text-ink-500 dark:text-ink-400">{sub}</div>
-                  </div>
-                  <time className="text-xs text-ink-400">{when}</time>
-                </li>
-              ))}
-            </ul>
+            {activityLoading ? (
+              <ul className="space-y-3">
+                {[0,1,2,3].map((i) => (
+                  <li key={i} className="flex items-start gap-3 py-2">
+                    <div className="size-8 rounded-full shimmer" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 w-1/3 rounded shimmer" />
+                      <div className="h-3 w-2/3 rounded shimmer" />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : activity.length === 0 ? (
+              <div className="py-8 text-center text-sm text-ink-500">No activity yet.</div>
+            ) : (
+              <ul className="space-y-3">
+                {activity.map((it) => {
+                  const Row = (
+                    <li className="flex items-start gap-3 py-2">
+                      <div className="size-8 rounded-full bg-brand-100 dark:bg-brand-500/15 text-brand-700 dark:text-brand-300 grid place-items-center mt-0.5">
+                        <Activity className="size-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm">{it.title}</div>
+                        <div className="text-sm text-ink-500 dark:text-ink-400 truncate">{it.subtitle}</div>
+                      </div>
+                      <time className="text-xs text-ink-400 whitespace-nowrap" title={new Date(it.at).toLocaleString()}>{formatRelative(it.at)}</time>
+                    </li>
+                  );
+                  return it.href ? (
+                    <Link key={it.id} href={it.href} className="block hover:bg-ink-50/60 dark:hover:bg-ink-800/40 -mx-2 px-2 rounded transition">{Row}</Link>
+                  ) : (
+                    <div key={it.id}>{Row}</div>
+                  );
+                })}
+              </ul>
+            )}
           </div>
 
           <div className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-6">

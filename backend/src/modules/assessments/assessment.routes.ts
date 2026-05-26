@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../config/prisma.js';
 import { authenticate, requireRole, hasRole } from '../../common/auth.js';
 import { handleError } from '../../common/errors.js';
+import { logAudit } from '../../common/audit.js';
 
 const CreateBody = z.object({
     courseId: z.string(),
@@ -104,12 +105,13 @@ export async function assessmentRoutes(app: FastifyInstance) {
     app.delete('/:id', { preHandler: requireRole('INSTANCE_ADMIN', 'MANAGER', 'TEACHER') }, async (req, reply) => {
         try {
             const { id } = req.params as { id: string };
-            const existing = await prisma.assessment.findUnique({ where: { id }, select: { courseId: true } });
+            const existing = await prisma.assessment.findUnique({ where: { id }, select: { courseId: true, name: true } });
             if (!existing) return reply.code(404).send({ error: 'NotFound' });
             if (!(await canManageCourse(req, existing.courseId))) return reply.code(403).send({ error: 'Forbidden' });
             // cascade delete grades tied to this assessment
             await prisma.grade.deleteMany({ where: { assessmentId: id } });
             await prisma.assessment.delete({ where: { id } });
+            logAudit(req, 'assessment.deleted', 'assessment', id, { name: existing.name, courseId: existing.courseId });
             return reply.code(204).send();
         } catch (err) { return handleError(reply, err); }
     });

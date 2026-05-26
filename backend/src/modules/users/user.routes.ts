@@ -4,6 +4,7 @@ import { prisma } from '../../config/prisma.js';
 import { authenticate, requireRole, hasRole, effectiveRoles } from '../../common/auth.js';
 import { PaginationQuery, skipTake } from '../../common/pagination.js';
 import { handleError } from '../../common/errors.js';
+import { logAudit } from '../../common/audit.js';
 import { hashPassword } from '../auth/auth.service.js';
 import type { Role } from '@prisma/client';
 
@@ -113,18 +114,25 @@ export async function userRoutes(app: FastifyInstance) {
             const { id } = req.params as { id: string };
             const body = UpdateUser.parse(req.body);
             const data: any = { ...body };
+            const before = await prisma.user.findUnique({ where: { id }, select: { isActive: true, role: true, name: true } });
             if (body.extraRoles && body.role) {
                 data.extraRoles = body.extraRoles.filter((r) => r !== body.role);
             } else if (body.extraRoles && !body.role) {
                 // Don't include primary role in extras
-                const current = await prisma.user.findUnique({ where: { id }, select: { role: true } });
-                data.extraRoles = current ? body.extraRoles.filter((r) => r !== current.role) : body.extraRoles;
+                data.extraRoles = before ? body.extraRoles.filter((r) => r !== before.role) : body.extraRoles;
             }
             const u = await prisma.user.update({
                 where: { id },
                 data,
                 select: { id: true, email: true, name: true, role: true, extraRoles: true, isActive: true, phone: true, avatarUrl: true },
             });
+            if (before && body.isActive !== undefined && before.isActive !== body.isActive) {
+                logAudit(req, body.isActive ? 'user.activated' : 'user.deactivated', 'user', id, { name: u.name, isActive: body.isActive });
+            }
+            const accountKeys = Object.keys(body).filter((k) => k !== 'isActive');
+            if (accountKeys.length) {
+                logAudit(req, 'user.account.updated', 'user', id, { name: u.name, keys: accountKeys, role: u.role });
+            }
             return { ...u, roles: effectiveRoles(u.role, u.extraRoles) };
         } catch (err) { return handleError(reply, err); }
     });
@@ -132,7 +140,9 @@ export async function userRoutes(app: FastifyInstance) {
     app.delete('/:id', { preHandler: requireRole('INSTANCE_ADMIN') }, async (req, reply) => {
         try {
             const { id } = req.params as { id: string };
+            const existing = await prisma.user.findUnique({ where: { id }, select: { name: true, email: true, role: true } });
             await prisma.user.delete({ where: { id } });
+            logAudit(req, 'user.deleted', 'user', id, existing ?? undefined);
             return reply.code(204).send();
         } catch (err) { return handleError(reply, err); }
     });

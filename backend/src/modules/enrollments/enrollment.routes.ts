@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../config/prisma.js';
 import { authenticate, requireRole } from '../../common/auth.js';
 import { handleError } from '../../common/errors.js';
+import { logAudit } from '../../common/audit.js';
 
 /**
  * Canonical enrollment status values. Stored as string in DB (no enum yet).
@@ -238,7 +239,10 @@ export async function enrollmentRoutes(app: FastifyInstance) {
 
             const current = await prisma.enrollment.findUnique({
                 where: { id },
-                include: { course: { select: { teacherId: true } } },
+                include: {
+                    course: { select: { teacherId: true, code: true, title: true } },
+                    student: { select: { user: { select: { name: true } } } },
+                },
             });
             if (!current) return reply.code(404).send({ message: 'Enrollment not found' });
 
@@ -269,6 +273,14 @@ export async function enrollmentRoutes(app: FastifyInstance) {
                 },
                 include: includeFull,
             });
+            if (body.status !== undefined && body.status !== current.status) {
+                logAudit(req, 'enrollment.status.changed', 'enrollment', id, {
+                    student: current.student?.user?.name,
+                    course: current.course ? `${current.course.code} — ${current.course.title}` : undefined,
+                    from: current.status,
+                    to: body.status,
+                });
+            }
             return updated;
         } catch (err) { return handleError(reply, err); }
     });
@@ -277,7 +289,21 @@ export async function enrollmentRoutes(app: FastifyInstance) {
     app.delete('/:id', { preHandler: requireRole('INSTANCE_ADMIN', 'MANAGER') }, async (req, reply) => {
         try {
             const { id } = req.params as { id: string };
+            const existing = await prisma.enrollment.findUnique({
+                where: { id },
+                select: {
+                    status: true, academicYear: true,
+                    student: { select: { user: { select: { name: true } } } },
+                    course: { select: { code: true, title: true } },
+                },
+            });
             await prisma.enrollment.delete({ where: { id } });
+            logAudit(req, 'enrollment.deleted', 'enrollment', id, {
+                student: existing?.student?.user?.name,
+                course: existing?.course ? `${existing.course.code} — ${existing.course.title}` : undefined,
+                academicYear: existing?.academicYear,
+                status: existing?.status,
+            });
             return reply.code(204).send();
         } catch (err) { return handleError(reply, err); }
     });

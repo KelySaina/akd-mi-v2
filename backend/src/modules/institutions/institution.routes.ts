@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../config/prisma.js';
 import { authenticate, requireRole } from '../../common/auth.js';
 import { handleError } from '../../common/errors.js';
+import { logAudit } from '../../common/audit.js';
 
 const InstitutionUpdate = z.object({
     name: z.string().min(1).optional(),
@@ -93,6 +94,9 @@ export async function institutionRoutes(app: FastifyInstance) {
             const body = InstitutionUpdate.parse(req.body);
             const inst = await getOrCreateInstitution();
             const updated = await prisma.institution.update({ where: { id: inst.id }, data: body });
+            const keys = Object.keys(body);
+            const themeChanged = keys.some((k) => ['logoUrl', 'coverUrl', 'settings'].includes(k));
+            logAudit(req, themeChanged ? 'institution.theme.updated' : 'institution.settings.updated', 'institution', inst.id, { keys });
             return updated;
         } catch (err) { return handleError(reply, err); }
     });
@@ -103,6 +107,7 @@ export async function institutionRoutes(app: FastifyInstance) {
             const body = AddressBody.parse(req.body);
             const inst = await getOrCreateInstitution();
             const a = await prisma.institutionAddress.create({ data: { ...body, institutionId: inst.id } });
+            logAudit(req, 'institution.address.created', 'institution_address', a.id, { city: a.city, country: a.country });
             return reply.code(201).send(a);
         } catch (err) { return handleError(reply, err); }
     });
@@ -111,14 +116,18 @@ export async function institutionRoutes(app: FastifyInstance) {
         try {
             const { id } = req.params as { id: string };
             const body = AddressBody.partial().parse(req.body);
-            return await prisma.institutionAddress.update({ where: { id }, data: body });
+            const updated = await prisma.institutionAddress.update({ where: { id }, data: body });
+            logAudit(req, 'institution.address.updated', 'institution_address', id, { keys: Object.keys(body) });
+            return updated;
         } catch (err) { return handleError(reply, err); }
     });
 
     priv.delete('/addresses/:id', { preHandler: requireRole('INSTANCE_ADMIN', 'MANAGER') }, async (req, reply) => {
         try {
             const { id } = req.params as { id: string };
+            const existing = await prisma.institutionAddress.findUnique({ where: { id }, select: { city: true, country: true } });
             await prisma.institutionAddress.delete({ where: { id } });
+            logAudit(req, 'institution.address.deleted', 'institution_address', id, existing ?? undefined);
             return reply.code(204).send();
         } catch (err) { return handleError(reply, err); }
     });
@@ -129,6 +138,7 @@ export async function institutionRoutes(app: FastifyInstance) {
             const body = ContactBody.parse(req.body);
             const inst = await getOrCreateInstitution();
             const c = await prisma.institutionContact.create({ data: { ...body, institutionId: inst.id } });
+            logAudit(req, 'institution.contact.created', 'institution_contact', c.id, { type: c.type, value: c.value });
             return reply.code(201).send(c);
         } catch (err) { return handleError(reply, err); }
     });
@@ -136,7 +146,9 @@ export async function institutionRoutes(app: FastifyInstance) {
     priv.delete('/contacts/:id', { preHandler: requireRole('INSTANCE_ADMIN', 'MANAGER') }, async (req, reply) => {
         try {
             const { id } = req.params as { id: string };
+            const existing = await prisma.institutionContact.findUnique({ where: { id }, select: { type: true, value: true } });
             await prisma.institutionContact.delete({ where: { id } });
+            logAudit(req, 'institution.contact.deleted', 'institution_contact', id, existing ?? undefined);
             return reply.code(204).send();
         } catch (err) { return handleError(reply, err); }
     });
@@ -158,6 +170,9 @@ export async function institutionRoutes(app: FastifyInstance) {
             const body = MediaBody.parse(req.body);
             const inst = await getOrCreateInstitution();
             const m = await prisma.institutionMedia.create({ data: { ...body, institutionId: inst.id } });
+            logAudit(req, 'media.uploaded', 'media', m.id, {
+                kind: m.kind, title: m.title, filename: m.filename, mimeType: m.mimeType, size: m.size,
+            });
             return reply.code(201).send(m);
         } catch (err) { return handleError(reply, err); }
     });
@@ -166,14 +181,21 @@ export async function institutionRoutes(app: FastifyInstance) {
         try {
             const { id } = req.params as { id: string };
             const body = MediaBody.partial().parse(req.body);
-            return await prisma.institutionMedia.update({ where: { id }, data: body });
+            const updated = await prisma.institutionMedia.update({ where: { id }, data: body });
+            logAudit(req, 'media.updated', 'media', id, { keys: Object.keys(body) });
+            return updated;
         } catch (err) { return handleError(reply, err); }
     });
 
     priv.delete('/media/:id', { preHandler: requireRole('INSTANCE_ADMIN', 'MANAGER') }, async (req, reply) => {
         try {
             const { id } = req.params as { id: string };
+            const existing = await prisma.institutionMedia.findUnique({
+                where: { id },
+                select: { kind: true, title: true, filename: true },
+            });
             await prisma.institutionMedia.delete({ where: { id } });
+            logAudit(req, 'media.deleted', 'media', id, existing ?? undefined);
             return reply.code(204).send();
         } catch (err) { return handleError(reply, err); }
     });

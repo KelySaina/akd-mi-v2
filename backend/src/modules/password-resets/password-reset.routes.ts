@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../config/prisma.js';
 import { authenticate, requireRole } from '../../common/auth.js';
 import { handleError } from '../../common/errors.js';
+import { logAudit } from '../../common/audit.js';
 import { hashPassword } from '../auth/auth.service.js';
 
 function genPassword() {
@@ -53,6 +54,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
                     status: 'pending',
                 },
             });
+            logAudit(req, 'password_reset.requested', 'password_reset', created.id, { source: 'self' });
             return reply.code(201).send(created);
         } catch (err) { return handleError(reply, err); }
     });
@@ -79,6 +81,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
                     data: { revokedAt: new Date() },
                 }),
             ]);
+            logAudit(req, 'password_reset.fulfilled', 'password_reset', id, { userId: r.userId });
             return { ok: true, generatedPassword: newPassword };
         } catch (err) { return handleError(reply, err); }
     });
@@ -94,6 +97,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
                 where: { id },
                 data: { status: 'rejected', fulfilledAt: new Date(), fulfilledById: req.user!.sub },
             });
+            logAudit(req, 'password_reset.rejected', 'password_reset', id, { userId: r.userId });
             return updated;
         } catch (err) { return handleError(reply, err); }
     });
@@ -123,6 +127,7 @@ export async function passwordResetRoutes(app: FastifyInstance) {
                     data: { revokedAt: new Date() },
                 }),
             ]);
+            logAudit(req, 'password_reset.admin_regenerated', 'user', userId);
             return { ok: true, generatedPassword: newPassword };
         } catch (err) { return handleError(reply, err); }
     });

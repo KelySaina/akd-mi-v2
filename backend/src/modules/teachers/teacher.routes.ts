@@ -4,6 +4,7 @@ import { prisma } from '../../config/prisma.js';
 import { authenticate, requireRole, hasRole } from '../../common/auth.js';
 import { PaginationQuery, skipTake } from '../../common/pagination.js';
 import { handleError } from '../../common/errors.js';
+import { logAudit } from '../../common/audit.js';
 import { hashPassword } from '../auth/auth.service.js';
 
 const CreateTeacher = z.object({
@@ -134,7 +135,12 @@ export async function teacherRoutes(app: FastifyInstance) {
     app.delete('/:id', { preHandler: requireRole('INSTANCE_ADMIN') }, async (req, reply) => {
         try {
             const { id } = req.params as { id: string };
+            const existing = await prisma.teacher.findUnique({
+                where: { id },
+                include: { user: { select: { name: true } } },
+            });
             await prisma.teacher.delete({ where: { id } });
+            logAudit(req, 'teacher.deleted', 'teacher', id, { name: existing?.user?.name });
             return reply.code(204).send();
         } catch (err) { return handleError(reply, err); }
     });
