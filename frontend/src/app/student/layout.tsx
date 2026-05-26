@@ -1,14 +1,16 @@
 'use client';
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { LayoutDashboard, BookOpen, Award, UserCog } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Award, UserCog, MessageSquare } from 'lucide-react';
 import { useAuth, canAccessArea, homeForRole } from '@/lib/auth';
 import { RoleSidebar, RoleNavItem } from '@/components/RoleSidebar';
+import { MessengerWidget } from '@/components/MessengerWidget';
 
 const nav: RoleNavItem[] = [
   { href: '/student',              label: 'Overview',    icon: LayoutDashboard },
   { href: '/student/enrollments',  label: 'My courses',  icon: BookOpen,  moduleKey: 'courses' },
   { href: '/student/grades',       label: 'My grades',   icon: Award,     moduleKey: 'grades' },
+  { href: '/student/messages',     label: 'Messages',    icon: MessageSquare, moduleKey: 'messaging' },
   { href: '/student/profile',      label: 'Profile',     icon: UserCog },
 ];
 
@@ -39,6 +41,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
     <div className="min-h-screen flex flex-col lg:flex-row bg-ink-50 dark:bg-ink-950 text-ink-900 dark:text-ink-100">
       <RoleSidebar items={nav} subtitle="Student space" />
       <div className="flex-1 min-w-0 flex flex-col">{children}</div>
+      <MessengerWidget />
     </div>
   );
 }

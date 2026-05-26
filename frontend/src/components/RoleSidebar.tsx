@@ -1,9 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LucideIcon, GraduationCap, LogOut, ChevronRight } from 'lucide-react';
+import { LucideIcon, LogOut, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useEnabledModules } from '@/lib/modules';
+import { categoryTheme } from '@/lib/category';
 import { MobileSidebarShell } from './MobileSidebarShell';
 
 export type RoleNavItem = { href: string; label: string; icon: LucideIcon; moduleKey?: string };
@@ -12,6 +13,7 @@ export function RoleSidebar({
   items, subtitle, accent = 'brand',
 }: { items: RoleNavItem[]; subtitle: string; accent?: 'brand' | 'amber' }) {
   const instance = process.env.NEXT_PUBLIC_INSTANCE_NAME ?? 'AKD-MI';
+  const BrandIcon = categoryTheme().icon;
   const ringCls = accent === 'amber'
     ? 'bg-gradient-to-br from-amber-500 to-orange-600'
     : 'bg-grad-brand';
@@ -22,7 +24,7 @@ export function RoleSidebar({
       <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900">
         <div className="px-5 py-5 flex items-center gap-2">
           <div className={`size-9 rounded-xl grid place-items-center text-white shadow-lg shadow-brand-500/30 ${ringCls}`}>
-            <GraduationCap className="size-5" />
+            <BrandIcon className="size-5" />
           </div>
           <div className="min-w-0">
             <div className="font-semibold truncate">{instance}</div>

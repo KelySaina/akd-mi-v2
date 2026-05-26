@@ -120,6 +120,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL}
         NEXT_PUBLIC_INSTANCE_NAME: ${INSTANCE_NAME}
+        NEXT_PUBLIC_INSTANCE_CATEGORY: ${INSTANCE_CATEGORY}
     restart: unless-stopped
     depends_on:
       - api
@@ -127,6 +128,7 @@ services:
       NODE_ENV: ${NODE_ENV}
       NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL}
       NEXT_PUBLIC_INSTANCE_NAME: ${INSTANCE_NAME}
+      NEXT_PUBLIC_INSTANCE_CATEGORY: ${INSTANCE_CATEGORY}
       INTERNAL_API_URL: http://api:4000
     ports:
       - "${WEB_PORT}:3000"

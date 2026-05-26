@@ -42,6 +42,11 @@ ADMIN_PASSWORD=$(gen_random_password 16)
 PUBLIC_HOST="${AKDMI_PUBLIC_HOST:-localhost}"
 PUBLIC_SCHEME="${AKDMI_PUBLIC_SCHEME:-http}"
 
+# Visual / branding category. Drives the theme (color palette, icon, hero copy)
+# in the instance frontend. One of: SCHOOL, COLLEGE, HIGH_SCHOOL, UNIVERSITY,
+# TRAINING_CENTER, VOCATIONAL, KINDERGARTEN, OTHER. Defaults to SCHOOL.
+INSTANCE_CATEGORY_VALUE="${INSTANCE_CATEGORY:-SCHOOL}"
+
 cat > "$INSTANCE_DIR/.env" <<EOF
 # AKD-MI instance: $SLUG
 # Generated $(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -49,6 +54,7 @@ cat > "$INSTANCE_DIR/.env" <<EOF
 # ── Identity ──
 INSTANCE_SLUG=$SLUG
 INSTANCE_NAME=$SLUG
+INSTANCE_CATEGORY=$INSTANCE_CATEGORY_VALUE
 PORT_OFFSET=$OFFSET
 
 # ── Public URLs ──

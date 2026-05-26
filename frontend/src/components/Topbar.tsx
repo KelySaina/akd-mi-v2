@@ -1,9 +1,11 @@
 'use client';
-import { Search, Bell, Plus, ClipboardList, KeyRound, CheckCircle2, XCircle, UserPlus } from 'lucide-react';
+import { Search, Bell, Plus, ClipboardList, KeyRound, CheckCircle2, XCircle, UserPlus, MessageSquare } from 'lucide-react';
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ThemeToggle } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
+import { useEnabledModules } from '@/lib/modules';
+import { api } from '@/lib/api';
 import { useNotifications, type NotificationItem } from '@/lib/useNotifications';
 
 export function Topbar({ title, action }: { title: string; action?: ReactNode }) {
@@ -22,6 +24,7 @@ export function Topbar({ title, action }: { title: string; action?: ReactNode })
         </div>
         <div className="ml-auto flex items-center gap-2">
           <ThemeToggle />
+          <MessagesBell />
           <NotificationBell />
           {action}
         </div>
@@ -124,4 +127,52 @@ function NotificationRow({ it, onSelect }: { it: NotificationItem; onSelect: () 
   return it.href
     ? <Link href={it.href} onClick={onSelect}>{content}</Link>
     : <div>{content}</div>;
+}
+
+function messagesPathFor(role: string | undefined): string {
+  switch (role) {
+    case 'STUDENT': return '/student/messages';
+    case 'TEACHER': return '/teacher/messages';
+    default: return '/admin/messages';
+  }
+}
+
+function MessagesBell() {
+  const { user } = useAuth();
+  const { isEnabled, ready } = useEnabledModules();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    if (ready && !isEnabled('messaging')) return;
+    let cancelled = false;
+    async function tick() {
+      try {
+        const r = await api.get<{ total: number }>('/messaging/unread-count');
+        if (!cancelled) setUnread(r.total ?? 0);
+      } catch { /* ignore */ }
+    }
+    tick();
+    const t = setInterval(tick, 30000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [user, ready, isEnabled]);
+
+  if (!user) return null;
+  if (ready && !isEnabled('messaging')) return null;
+
+  return (
+    <Link
+      href={messagesPathFor(user.role)}
+      className="p-2 rounded-lg hover:bg-ink-100 dark:hover:bg-ink-800 text-ink-600 dark:text-ink-300 relative"
+      aria-label="Messages"
+      title="Messages"
+    >
+      <MessageSquare className="size-5" />
+      {unread > 0 && (
+        <span className="absolute -top-0.5 -right-0.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-brand-500 text-white text-[10px] font-semibold grid place-items-center shadow ring-2 ring-white dark:ring-ink-900">
+          {unread > 99 ? '99+' : unread}
+        </span>
+      )}
+    </Link>
+  );
 }

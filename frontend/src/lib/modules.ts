@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from './api';
 import { getToken } from './auth';
 
@@ -46,7 +46,7 @@ export function useEnabledModules(): ModulesState {
     const [map, setMap] = useState<Record<string, boolean>>(() => readCache() ?? {});
     const [ready, setReady] = useState<boolean>(() => readCache() != null);
 
-    function load() {
+    const load = useCallback(() => {
         if (typeof window === 'undefined') return;
         if (!getToken()) { setReady(true); return; }
         api.get<{ items: ModuleRow[] }>('/modules')
@@ -58,22 +58,29 @@ export function useEnabledModules(): ModulesState {
             })
             .catch(() => { /* keep cache / defaults */ })
             .finally(() => setReady(true));
-    }
+    }, []);
 
     useEffect(() => {
         load();
         const handler = () => load();
         window.addEventListener(REFRESH_EVENT, handler);
         return () => window.removeEventListener(REFRESH_EVENT, handler);
-    }, []);
+    }, [load]);
 
-    return {
-        ready,
-        refresh: load,
-        isEnabled: (key) => {
+    // Stable `isEnabled` reference — its identity only changes when the map
+    // changes. Critical: many consumers list `isEnabled` in effect deps, so
+    // returning a fresh function each render would cause runaway re-fetch loops.
+    const isEnabled = useCallback(
+        (key: string | undefined | null) => {
             if (!key) return true;            // untagged items are always shown
             const v = map[key];
             return v === undefined ? true : v; // default = enabled
         },
-    };
+        [map],
+    );
+
+    return useMemo(
+        () => ({ ready, refresh: load, isEnabled }),
+        [ready, load, isEnabled],
+    );
 }

@@ -2,16 +2,17 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-    GraduationCap, Mail, User, Phone, ArrowRight, Loader2,
+    Mail, User, Phone, ArrowRight, Loader2,
     CheckCircle2, Sparkles, Heart, BookOpen, Compass, PartyPopper, Quote,
     Users, ShieldCheck, Send,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { templateBrand } from '@/lib/templateBrand';
 
-export default function RegisterPage() {
+export function RegisterForm({ name, template }: { name: string; template: string }) {
     return (
         <Suspense fallback={<div className="min-h-screen grid place-items-center text-ink-500"><Loader2 className="size-5 animate-spin" /></div>}>
-            <RegisterInner />
+            <RegisterInner name={name} template={template} />
         </Suspense>
     );
 }
@@ -23,14 +24,15 @@ const STORIES = [
     { quote: "From day one it felt like coming home.",                            who: "Marcus, first year" },
 ];
 
-function RegisterInner() {
+function RegisterInner({ name, template }: { name: string; template: string }) {
     const [form, setForm] = useState({ name: '', email: '', phone: '' });
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [done, setDone] = useState(false);
     const [story, setStory] = useState(0);
 
-    const name = process.env.NEXT_PUBLIC_INSTANCE_NAME ?? 'AKD-MI';
+    const brand = templateBrand(template);
+    const BrandIcon = brand.icon;
 
     useEffect(() => {
         const t = setInterval(() => setStory((s) => (s + 1) % STORIES.length), 5500);
@@ -106,7 +108,7 @@ function RegisterInner() {
                 <nav className="max-w-6xl mx-auto px-5 sm:px-8 py-5 flex items-center justify-between">
                     <Link href="/" className="inline-flex items-center gap-2.5 font-semibold">
                         <div className="size-9 rounded-xl bg-grad-brand grid place-items-center text-white shadow-lg shadow-brand-500/30">
-                            <GraduationCap className="size-5" />
+                            <BrandIcon className="size-5" />
                         </div>
                         <span className="truncate">{name}</span>
                     </Link>

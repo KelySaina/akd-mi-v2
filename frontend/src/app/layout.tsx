@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { themeBootScript } from '@/lib/theme';
+import { INSTANCE_CATEGORY } from '@/lib/category';
+import { resolveTheme, themeStyle, type Institution } from '@/components/landing/types';
 import { DialogProvider } from '@/components/DialogProvider';
 
-async function getInstitution(): Promise<{ name?: string; description?: string | null; logoUrl?: string | null } | null> {
+async function getInstitution(): Promise<Partial<Institution> | null> {
     const base = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL;
     if (!base) return null;
     try {
@@ -26,9 +28,24 @@ export async function generateMetadata(): Promise<Metadata> {
     };
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+    // Resolve the admin's chosen landing template + color theme so they apply
+    // not only to the public landing page but also to login/register/forgot
+    // password and every other page that sits inside this layout.
+    const inst = await getInstitution();
+    const settings = inst?.settings ?? null;
+    const { primary, accent } = resolveTheme(settings?.landingTheme);
+    const landingTemplate = (settings?.landingTemplate as string | undefined) ?? 'classic';
+    const style = themeStyle(primary, accent);
+
     return (
-        <html lang="en" suppressHydrationWarning>
+        <html
+            lang="en"
+            data-category={INSTANCE_CATEGORY}
+            data-landing-template={landingTemplate}
+            style={style}
+            suppressHydrationWarning
+        >
             <head>
                 <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
             </head>

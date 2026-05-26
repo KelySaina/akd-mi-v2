@@ -24,6 +24,7 @@ import { assessmentRoutes } from './modules/assessments/assessment.routes.js';
 import { storageRoutes } from './modules/storage/storage.routes.js';
 import { passwordResetRoutes, forgotPasswordRoutes } from './modules/password-resets/password-reset.routes.js';
 import { notificationRoutes } from './modules/notifications/notification.routes.js';
+import { messagingRoutes } from './modules/messaging/messaging.routes.js';
 
 export async function buildApp() {
     const env = loadEnv();
@@ -94,6 +95,7 @@ export async function buildApp() {
     await app.register(storageRoutes,     { prefix: '/api/v1/storage' });
     await app.register(passwordResetRoutes, { prefix: '/api/v1/password-resets' });
     await app.register(notificationRoutes, { prefix: '/api/v1/notifications' });
+    await app.register(messagingRoutes,   { prefix: '/api/v1/messaging' });
 
     await connectDb();
     try { await ensureBucket(); }

@@ -18,12 +18,12 @@ export function akdmiBin(): string {
 
 export type CliResult = { ok: boolean; code: number; stdout: string; stderr: string };
 
-export async function runAkdmi(args: string[], opts: { timeoutMs?: number } = {}): Promise<CliResult> {
+export async function runAkdmi(args: string[], opts: { timeoutMs?: number; env?: Record<string, string> } = {}): Promise<CliResult> {
     const timeoutMs = opts.timeoutMs ?? 5 * 60 * 1000;
     return new Promise((resolve) => {
         const child = spawn('bash', [akdmiBin(), ...args], {
             cwd: projectDir(),
-            env: process.env,
+            env: { ...process.env, ...(opts.env ?? {}) },
         });
         let stdout = '', stderr = '';
         let killed = false;

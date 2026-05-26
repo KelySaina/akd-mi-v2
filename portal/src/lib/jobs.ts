@@ -34,6 +34,8 @@ type CreateJobOpts = {
     steps: string[][];
     title?: string;
     timeoutMs?: number;
+    /** Extra env vars forwarded to every spawned `akd-mi` step (merged over process.env). */
+    env?: Record<string, string>;
     /** Run after the LAST step completes successfully. May attach to `job.result`. */
     onSuccess?: (job: Job) => Promise<void> | void;
     /** Always run, regardless of success/failure. */
@@ -146,7 +148,7 @@ async function runJob(job: Job, opts: CreateJobOpts): Promise<void> {
             const args = job.steps[i];
             pushLine(job, 'sys', `── step ${i + 1}/${job.steps.length}: akd-mi ${args.join(' ')} ──`);
 
-            const code = await runStep(job, args, timeoutMs);
+            const code = await runStep(job, args, timeoutMs, opts.env);
             if (code !== 0) {
                 job.status = 'failed';
                 job.exitCode = code;
@@ -186,12 +188,12 @@ async function runJob(job: Job, opts: CreateJobOpts): Promise<void> {
     }
 }
 
-function runStep(job: Job, args: string[], timeoutMs: number): Promise<number> {
+function runStep(job: Job, args: string[], timeoutMs: number, extraEnv?: Record<string, string>): Promise<number> {
     return new Promise((resolve) => {
         const reg = registry();
         const child = spawn('bash', [akdmiBin(), ...args], {
             cwd: projectDir(),
-            env: process.env,
+            env: { ...process.env, ...(extraEnv ?? {}) },
         });
         reg.children.set(job.id, child);
 

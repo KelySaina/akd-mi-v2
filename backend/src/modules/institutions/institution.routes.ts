@@ -70,6 +70,19 @@ export async function institutionRoutes(app: FastifyInstance) {
         return inst;
     });
 
+    // Public, unauthenticated counts used by the login / landing "stats" tiles.
+    // Returns active students / active teachers / active courses / institution
+    // documents. No PII, just integers.
+    app.get('/stats', async () => {
+        const [students, teachers, courses, documents] = await Promise.all([
+            prisma.student.count({ where: { status: 'active' } }),
+            prisma.teacher.count({ where: { user: { isActive: true } } }),
+            prisma.course.count({ where: { isActive: true } }),
+            prisma.institutionDocument.count(),
+        ]);
+        return { students, teachers, courses, documents };
+    });
+
     // Authenticated routes in an isolated child scope so the hook above
     // does NOT apply to the public GET / route declared in the parent scope.
     await app.register(async (priv) => {

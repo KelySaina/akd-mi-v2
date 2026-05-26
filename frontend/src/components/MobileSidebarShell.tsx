@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { GraduationCap, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
+import { categoryTheme } from '@/lib/category';
 
 /**
  * Mobile-only top bar + slide-in drawer that wraps an arbitrary sidebar body.
@@ -36,6 +37,7 @@ export function MobileSidebarShell({
     const ringCls = accent === 'amber'
         ? 'bg-gradient-to-br from-amber-500 to-orange-600'
         : 'bg-grad-brand';
+    const BrandIcon = categoryTheme().icon;
 
     return (
         <div className="lg:hidden">
@@ -52,7 +54,7 @@ export function MobileSidebarShell({
                     <Menu className="size-5" strokeWidth={2.25} />
                 </button>
                 <div className={`size-9 rounded-xl grid place-items-center text-white shadow-lg shadow-brand-500/30 ${ringCls} shrink-0`}>
-                    <GraduationCap className="size-5" />
+                    <BrandIcon className="size-5" />
                 </div>
                 <div className="min-w-0">
                     <div className="font-semibold text-sm leading-tight truncate">{title}</div>

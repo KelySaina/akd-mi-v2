@@ -1,10 +1,22 @@
 import { NextResponse } from 'next/server';
+import path from 'node:path';
+import fs from 'node:fs/promises';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/admin-auth';
-import { SLUG_RE } from '@/lib/akdmi';
+import { SLUG_RE, projectDir } from '@/lib/akdmi';
 import { createJob, JobConflictError } from '@/lib/jobs';
 
 export const dynamic = 'force-dynamic';
+
+/** Update or insert a single KEY=VALUE entry in the instance .env (in-place). */
+async function setInstanceEnvVar(slug: string, key: string, value: string): Promise<void> {
+    const envPath = path.join(projectDir(), 'instances', slug, '.env');
+    let txt = '';
+    try { txt = await fs.readFile(envPath, 'utf8'); } catch { return; }
+    const lineRe = new RegExp(`^${key}=.*$`, 'm');
+    const next = lineRe.test(txt) ? txt.replace(lineRe, `${key}=${value}`) : `${txt.replace(/\n?$/, '\n')}${key}=${value}\n`;
+    if (next !== txt) await fs.writeFile(envPath, next, 'utf8');
+}
 
 // GET /api/admin/instances/:slug — read row
 export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
@@ -35,6 +47,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ slug: 
         },
     }).catch(() => null);
     if (!inst) return NextResponse.json({ error: 'NotFound' }, { status: 404 });
+
+    // Keep the instance .env in lock-step with the portal DB for visual fields
+    // that affect the frontend build. The container still needs a rebuild
+    // (`akd-mi up <slug>` or a portal restart action) to actually re-bake the
+    // NEXT_PUBLIC_INSTANCE_CATEGORY into the static bundle.
+    if (typeof body.category === 'string' && body.category.trim()) {
+        await setInstanceEnvVar(slug, 'INSTANCE_CATEGORY', body.category.trim()).catch(() => null);
+    }
+    if (typeof body.name === 'string' && body.name.trim()) {
+        await setInstanceEnvVar(slug, 'INSTANCE_NAME', body.name.trim()).catch(() => null);
+    }
+
     return NextResponse.json(inst);
 }
 

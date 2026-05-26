@@ -53,6 +53,9 @@ export async function POST(req: Request) {
                 ['up', body.slug],
                 ['seed', body.slug],
             ],
+            // Forward category so init.sh bakes it into the instance's .env and the
+            // frontend container is built with the right NEXT_PUBLIC_INSTANCE_CATEGORY.
+            env: { INSTANCE_CATEGORY: body.category },
             // 30 min cap for the whole pipeline (image pulls + db boot + seed).
             timeoutMs: 30 * 60 * 1000,
             onSuccess: async (j) => {
