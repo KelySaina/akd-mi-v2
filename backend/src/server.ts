@@ -5,6 +5,7 @@ import jwt from '@fastify/jwt';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import multipart from '@fastify/multipart';
+import websocket from '@fastify/websocket';
 
 import { loadEnv } from './config/env.js';
 import { connectDb, disconnectDb } from './config/prisma.js';
@@ -25,6 +26,7 @@ import { storageRoutes } from './modules/storage/storage.routes.js';
 import { passwordResetRoutes, forgotPasswordRoutes } from './modules/password-resets/password-reset.routes.js';
 import { notificationRoutes } from './modules/notifications/notification.routes.js';
 import { messagingRoutes } from './modules/messaging/messaging.routes.js';
+import { realtimeRoutes } from './realtime/realtime.routes.js';
 
 export async function buildApp() {
     const env = loadEnv();
@@ -65,6 +67,7 @@ export async function buildApp() {
         redis: redis as any,
     });
     await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024 } });
+    await app.register(websocket);
 
     // Health & meta
     app.get('/health', async () => ({
@@ -96,6 +99,7 @@ export async function buildApp() {
     await app.register(passwordResetRoutes, { prefix: '/api/v1/password-resets' });
     await app.register(notificationRoutes, { prefix: '/api/v1/notifications' });
     await app.register(messagingRoutes,   { prefix: '/api/v1/messaging' });
+    await app.register(realtimeRoutes,    { prefix: '/api/v1/ws' });
 
     await connectDb();
     try { await ensureBucket(); }

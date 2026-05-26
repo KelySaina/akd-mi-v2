@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma.js';
 import { authenticate } from '../../common/auth.js';
 import { handleError } from '../../common/errors.js';
+import { publishToUsers, type RealtimeEvent } from '../../realtime/hub.js';
 
 /* ────────────────────────────────────────────────────────────────── */
 /* Validation                                                          */
@@ -61,6 +62,22 @@ async function assertParticipant(conversationId: string, userId: string): Promis
         select: { id: true, leftAt: true },
     });
     return !!p && !p.leftAt;
+}
+
+/** Fetch active participant userIds for a conversation (used to fan out WS events). */
+async function activeParticipantIds(conversationId: string): Promise<string[]> {
+    const rows = await prisma.conversationParticipant.findMany({
+        where: { conversationId, leftAt: null },
+        select: { userId: true },
+    });
+    return rows.map((r) => r.userId);
+}
+
+async function notifyConversation(conversationId: string, event: RealtimeEvent): Promise<void> {
+    try {
+        const ids = await activeParticipantIds(conversationId);
+        publishToUsers(ids, event);
+    } catch { /* never fail the HTTP response over a fanout error */ }
 }
 
 async function loadConversationView(conversationId: string, viewerId: string) {
@@ -406,6 +423,7 @@ export async function messagingRoutes(app: FastifyInstance) {
                     data: { lastReadAt: now },
                 }),
             ]);
+            await notifyConversation(id, { type: 'message.new', conversationId: id, messageId: msg.id });
             return reply.code(201).send(msg);
         } catch (err) { return handleError(reply, err); }
     });
@@ -422,6 +440,7 @@ export async function messagingRoutes(app: FastifyInstance) {
                 where: { conversationId_userId: { conversationId: id, userId: me } },
                 data: { lastReadAt: new Date() },
             });
+            await notifyConversation(id, { type: 'conversation.read', conversationId: id, userId: me });
             return { ok: true };
         } catch (err) { return handleError(reply, err); }
     });
@@ -443,6 +462,7 @@ export async function messagingRoutes(app: FastifyInstance) {
                     sender: { select: { id: true, name: true, avatarUrl: true } },
                 },
             });
+            await notifyConversation(m.conversationId, { type: 'message.updated', conversationId: m.conversationId, messageId: id });
             return updated;
         } catch (err) { return handleError(reply, err); }
     });
@@ -459,6 +479,7 @@ export async function messagingRoutes(app: FastifyInstance) {
                 where: { id },
                 data: { deletedAt: new Date(), body: '', attachments: [] as unknown as Prisma.InputJsonValue },
             });
+            await notifyConversation(m.conversationId, { type: 'message.deleted', conversationId: m.conversationId, messageId: id });
             return reply.code(204).send();
         } catch (err) { return handleError(reply, err); }
     });

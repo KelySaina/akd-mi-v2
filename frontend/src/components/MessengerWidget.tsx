@@ -6,6 +6,7 @@ import { MessageSquare, X, Search, ChevronLeft, ExternalLink } from 'lucide-reac
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useEnabledModules } from '@/lib/modules';
+import { useRealtime } from '@/lib/realtime';
 import {
     ConversationThread,
     Avatar,
@@ -15,7 +16,9 @@ import {
     type Conversation,
 } from './MessagesView';
 
-const POLL_MS = 15_000;
+// Safety-net refresh interval used only when the websocket is silent for a
+// long time (e.g. server restart). Realtime events drive updates normally.
+const FALLBACK_REFRESH_MS = 120_000;
 
 function messagesPathFor(role: string | undefined): string {
     switch (role) {
@@ -49,9 +52,19 @@ export function MessengerWidget() {
         if (!loaded || !user) return;
         if (modulesReady && !isEnabled('messaging')) return;
         load();
-        const t = setInterval(load, POLL_MS);
+        const t = setInterval(load, FALLBACK_REFRESH_MS);
         return () => clearInterval(t);
     }, [loaded, user, modulesReady, isEnabled, load]);
+
+    // Realtime: refresh the conversation list whenever the server tells us
+    // something happened that affects it. No polling for the hot path.
+    useRealtime((e) => {
+        if (e.type === 'message.new' || e.type === 'message.updated' ||
+            e.type === 'message.deleted' || e.type === 'conversation.updated' ||
+            e.type === 'conversation.read') {
+            load();
+        }
+    });
 
     const totalUnread = useMemo(
         () => convos.reduce((sum, c) => sum + (c.unread || 0), 0),

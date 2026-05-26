@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Topbar } from '@/components/Topbar';
 import { api, uploadFile } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { useRealtime } from '@/lib/realtime';
 import {
     Send, Paperclip, Search, Plus, Users as UsersIcon, X, Loader2,
     Check, CheckCheck, MessageSquare, File as FileIcon, Image as ImageIcon, Trash2, ArrowLeft,
@@ -47,8 +48,8 @@ type Message = {
 /* Helpers                                                          */
 /* ────────────────────────────────────────────────────────────── */
 
-const CONVO_POLL_MS = 15_000;
-const MSG_POLL_MS = 5_000;
+const CONVO_POLL_MS = 120_000; // safety-net only; realtime drives updates
+const MSG_POLL_MS = 120_000;   // safety-net only; realtime drives updates
 
 function initials(name: string): string {
     const parts = name.trim().split(/\s+/);
@@ -119,6 +120,15 @@ export function MessagesView({ title = 'Messages' }: { title?: string }) {
         const t = setInterval(loadConvos, CONVO_POLL_MS);
         return () => clearInterval(t);
     }, [loadConvos]);
+
+    // Realtime: refresh the list whenever a relevant event arrives.
+    useRealtime((e) => {
+        if (e.type === 'message.new' || e.type === 'message.updated' ||
+            e.type === 'message.deleted' || e.type === 'conversation.updated' ||
+            e.type === 'conversation.read') {
+            loadConvos();
+        }
+    });
 
     const filtered = useMemo(() => {
         if (!query.trim()) return convos;
@@ -341,6 +351,14 @@ export function ConversationThread({
         const t = setInterval(pollNew, MSG_POLL_MS);
         return () => clearInterval(t);
     }, [pollNew]);
+
+    // Realtime: refresh thread on events scoped to this conversation.
+    useRealtime((e) => {
+        if ('conversationId' in e && e.conversationId !== convo.id) return;
+        if (e.type === 'message.new' || e.type === 'message.updated' || e.type === 'message.deleted') {
+            pollNew();
+        }
+    });
 
     async function loadOlder() {
         if (!nextCursor || loadingMore) return;
