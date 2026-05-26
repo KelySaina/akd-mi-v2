@@ -42,7 +42,7 @@ export async function activityRoutes(app: FastifyInstance) {
                         select: {
                             id: true, createdAt: true, studentNumber: true,
                             user: { select: { name: true } },
-                            program: { select: { title: true } },
+                            program: { select: { name: true } },
                         },
                     }),
                     prisma.teacher.findMany({
@@ -95,7 +95,7 @@ export async function activityRoutes(app: FastifyInstance) {
                         id: `student:${s.id}`,
                         kind: 'student',
                         title: 'New student enrolled',
-                        subtitle: `${s.user?.name ?? 'Student'} ${s.program?.title ? `· ${s.program.title}` : ''}`.trim(),
+                        subtitle: `${s.user?.name ?? 'Student'} ${s.program?.name ? `· ${s.program.name}` : ''}`.trim(),
                         at: s.createdAt.toISOString(),
                         href: `/admin/students/${s.id}`,
                     });

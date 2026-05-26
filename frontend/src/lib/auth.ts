@@ -120,8 +120,10 @@ export function useAuth() {
         setUser(fresh);
         localStorage.setItem('user', JSON.stringify(fresh));
       } catch {
-        // api.ts already handled the 401 redirect; just clear local state
-        if (!cancelled) setUser(null);
+        // On 401, api.ts already cleared storage and navigated to /login.
+        // On any other error (429, network blip, server hiccup) we KEEP the
+        // hydrated user so guards don't bounce us into a /login ⇄ /admin
+        // redirect loop that hammers the API and snowballs into 429s.
       } finally {
         if (!cancelled) setLoaded(true);
       }

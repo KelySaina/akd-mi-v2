@@ -294,6 +294,7 @@ export function ConversationThread({
     const [attachments, setAttachments] = useState<Attachment[]>([]);
     const [uploading, setUploading] = useState(false);
     const [showInfo, setShowInfo] = useState(false);
+    const [sendError, setSendError] = useState<string | null>(null);
 
     const listRef = useRef<HTMLDivElement>(null);
     const lastIdRef = useRef<string | null>(null);
@@ -395,20 +396,29 @@ export function ConversationThread({
         const trimmed = draft.trim();
         if (!trimmed && attachments.length === 0) return;
         setSending(true);
+        setSendError(null);
         try {
             const m = await api.post<Message>(`/messaging/conversations/${convo.id}/messages`, {
                 body: trimmed,
                 attachments,
             });
             const msg = { ...m, attachments: parseAttachments(m.attachments) };
-            setMessages((prev) => [...prev, msg]);
+            // Dedupe against the WS-driven pollNew() race: if the realtime
+            // event fired between the POST being sent and the response being
+            // received, the message may already be in the list.
+            setMessages((prev) => (prev.some((x) => x.id === msg.id) ? prev : [...prev, msg]));
             setDraft('');
             setAttachments([]);
             queueMicrotask(() => {
                 const el = listRef.current;
                 if (el) el.scrollTop = el.scrollHeight;
             });
-        } catch (e: any) { console.warn(e?.message); }
+        } catch (e: any) {
+            // Surface the failure so the user knows the message did not send.
+            const msg = e?.message || 'Failed to send. Please try again.';
+            setSendError(msg);
+            console.warn(msg);
+        }
         finally { setSending(false); }
     }
 
@@ -509,6 +519,14 @@ export function ConversationThread({
                         {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                     </button>
                 </div>
+                {sendError && (
+                    <div className="mt-2 flex items-start justify-between gap-2 text-xs text-rose-600 dark:text-rose-400">
+                        <span className="truncate">Couldn’t send: {sendError}</span>
+                        <button onClick={() => setSendError(null)} className="text-rose-500/70 hover:text-rose-600 shrink-0" aria-label="Dismiss">
+                            <X className="size-3.5" />
+                        </button>
+                    </div>
+                )}
             </div>
 
             {showInfo && (
