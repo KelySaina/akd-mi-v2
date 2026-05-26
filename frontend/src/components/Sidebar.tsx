@@ -5,12 +5,13 @@ import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen,
   Calendar, FileBarChart, Settings, ChevronRight, ChevronDown,
-  Image as ImageIcon, ClipboardList, KeyRound, LogOut,
+  Image as ImageIcon, ClipboardList, KeyRound, LogOut, ToggleRight,
 } from 'lucide-react';
 import { MobileSidebarShell } from './MobileSidebarShell';
 import { useAuth } from '@/lib/auth';
+import { useEnabledModules } from '@/lib/modules';
 
-type NavItem = { href: string; label: string; icon: typeof LayoutDashboard };
+type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; moduleKey?: string };
 type NavGroup = { id: string; label: string; items: NavItem[] };
 
 const groups: NavGroup[] = [
@@ -26,17 +27,17 @@ const groups: NavGroup[] = [
     label: 'People',
     items: [
       { href: '/admin/users',    label: 'Users',    icon: Users },
-      { href: '/admin/students', label: 'Students', icon: GraduationCap },
-      { href: '/admin/teachers', label: 'Teachers', icon: Users },
+      { href: '/admin/students', label: 'Students', icon: GraduationCap, moduleKey: 'students' },
+      { href: '/admin/teachers', label: 'Teachers', icon: Users,         moduleKey: 'teachers' },
     ],
   },
   {
     id: 'academics',
     label: 'Academics',
     items: [
-      { href: '/admin/courses',     label: 'Courses',     icon: BookOpen },
-      { href: '/admin/enrollments', label: 'Enrollments', icon: ClipboardList },
-      { href: '/admin/schedule',    label: 'Schedule',    icon: Calendar },
+      { href: '/admin/courses',     label: 'Courses',     icon: BookOpen,        moduleKey: 'courses' },
+      { href: '/admin/enrollments', label: 'Enrollments', icon: ClipboardList,   moduleKey: 'courses' },
+      { href: '/admin/schedule',    label: 'Schedule',    icon: Calendar,        moduleKey: 'schedule' },
     ],
   },
   {
@@ -51,7 +52,14 @@ const groups: NavGroup[] = [
     label: 'Operations',
     items: [
       { href: '/admin/requests', label: 'Requests', icon: KeyRound },
-      { href: '/admin/reports',  label: 'Reports',  icon: FileBarChart },
+      { href: '/admin/reports',  label: 'Reports',  icon: FileBarChart, moduleKey: 'reports' },
+    ],
+  },
+  {
+    id: 'configuration',
+    label: 'Configuration',
+    items: [
+      { href: '/admin/modules', label: 'Modules', icon: ToggleRight },
     ],
   },
 ];
@@ -99,19 +107,25 @@ function isItemActive(pathname: string, href: string) {
 
 function SidebarBody() {
   const pathname = usePathname();
+  const { isEnabled } = useEnabledModules();
+
+  // Filter items per group by enabled modules, drop empty groups entirely.
+  const visibleGroups = groups
+    .map((g) => ({ ...g, items: g.items.filter((it) => isEnabled(it.moduleKey)) }))
+    .filter((g) => g.items.length > 0);
 
   // Persist collapse state + auto-open the group containing the active route.
   const [open, setOpen] = useState<Record<string, boolean>>({});
   useEffect(() => {
     const stored = loadOpenState();
     const next: Record<string, boolean> = {};
-    for (const g of groups) {
+    for (const g of visibleGroups) {
       const hasActive = g.items.some((it) => isItemActive(pathname, it.href));
       next[g.id] = hasActive ? true : (stored[g.id] ?? true);
     }
     setOpen(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, [pathname, visibleGroups.length]);
 
   function toggle(id: string) {
     setOpen((prev) => {
@@ -123,7 +137,7 @@ function SidebarBody() {
 
   return (
     <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
-      {groups.map((g) => {
+      {visibleGroups.map((g) => {
         const isOpen = open[g.id] ?? true;
         const hasActive = g.items.some((it) => isItemActive(pathname, it.href));
         return (

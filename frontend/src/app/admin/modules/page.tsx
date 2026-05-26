@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Topbar } from '@/components/Topbar';
 import { BookOpen, Users, GraduationCap, FileBarChart, Calendar, Library, MessageSquare, BarChart3, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { refreshEnabledModules } from '@/lib/modules';
 
 const META: Record<string, { label: string; icon: any; color: string; description: string }> = {
   courses:   { label: 'Courses',   icon: BookOpen,        color: 'from-violet-500 to-fuchsia-500', description: 'Programs, courses, syllabi.' },
@@ -38,11 +39,12 @@ export default function ModulesPage() {
   useEffect(() => { load(); }, []);
 
   async function toggle(key: string) {
-    const next = !active[key];
+    const next = !(active[key] ?? true);
     setSavingKey(key);
     setActive((s) => ({ ...s, [key]: next })); // optimistic
     try {
       await api.post('/modules', { moduleKey: key, enabled: next });
+      refreshEnabledModules();
     } catch (e: any) {
       setActive((s) => ({ ...s, [key]: !next }));
       setError(e.message);
@@ -69,7 +71,7 @@ export default function ModulesPage() {
             {available.map((key) => {
               const meta = META[key] ?? { label: key, icon: BookOpen, color: 'from-ink-400 to-ink-600', description: '' };
               const Icon = meta.icon;
-              const on = active[key] ?? false;
+              const on = active[key] ?? true; // default ON until explicitly disabled
               return (
                 <div key={key} className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 relative overflow-hidden">
                   <div className={`absolute -top-10 -right-10 size-32 rounded-full bg-gradient-to-br ${meta.color} opacity-10 blur-2xl`} />

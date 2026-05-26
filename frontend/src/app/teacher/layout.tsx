@@ -7,8 +7,8 @@ import { RoleSidebar, RoleNavItem } from '@/components/RoleSidebar';
 
 const nav: RoleNavItem[] = [
   { href: '/teacher',          label: 'Overview',   icon: LayoutDashboard },
-  { href: '/teacher/courses',  label: 'My courses', icon: BookOpen },
-  { href: '/teacher/gradebook',label: 'Gradebook',  icon: ClipboardCheck },
+  { href: '/teacher/courses',  label: 'My courses', icon: BookOpen,         moduleKey: 'courses' },
+  { href: '/teacher/gradebook',label: 'Gradebook',  icon: ClipboardCheck,   moduleKey: 'grades' },
   { href: '/teacher/profile',  label: 'Profile',    icon: UserCog },
 ];
 

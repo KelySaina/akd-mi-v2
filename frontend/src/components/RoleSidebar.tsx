@@ -3,9 +3,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LucideIcon, GraduationCap, LogOut, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { useEnabledModules } from '@/lib/modules';
 import { MobileSidebarShell } from './MobileSidebarShell';
 
-export type RoleNavItem = { href: string; label: string; icon: LucideIcon };
+export type RoleNavItem = { href: string; label: string; icon: LucideIcon; moduleKey?: string };
 
 export function RoleSidebar({
   items, subtitle, accent = 'brand',
@@ -43,10 +44,12 @@ export function RoleSidebar({
 
 function RoleNavList({ items }: { items: RoleNavItem[] }) {
   const pathname = usePathname();
-  const base = items[0]?.href;
+  const { isEnabled } = useEnabledModules();
+  const visible = items.filter((it) => isEnabled(it.moduleKey));
+  const base = visible[0]?.href;
   return (
     <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
-      {items.map(({ href, label, icon: Icon }) => {
+      {visible.map(({ href, label, icon: Icon }) => {
         const active = pathname === href || (href !== base && pathname.startsWith(href));
         return (
           <Link
