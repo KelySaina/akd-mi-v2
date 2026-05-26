@@ -6,6 +6,7 @@ import { PageHeader, StatusBadge, Button } from '@/components/AdminShell';
 import { JobRunner, type JobSnapshot } from '@/components/JobRunner';
 import { useConfirm, useNotify } from '@/components/Dialogs';
 import { resolvePublicUrl } from '@/lib/public-url';
+import { copyToClipboard } from '@/lib/clipboard';
 import {
     ArrowLeft, Play, Square, RefreshCw, Database, Sprout, HardDriveDownload, Trash2,
     Pencil, ExternalLink, ScrollText, Pause, FileTerminal, X, Save,
@@ -556,11 +557,11 @@ function SecretRow({ label, value, secret = true, forceReveal = false }: { label
 
     async function copy() {
         if (!value) return;
-        try {
-            await navigator.clipboard.writeText(value);
+        const ok = await copyToClipboard(value);
+        if (ok) {
             setCopied(true);
             setTimeout(() => setCopied(false), 1200);
-        } catch { /* ignore */ }
+        }
     }
 
     return (

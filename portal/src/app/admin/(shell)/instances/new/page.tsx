@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { PageHeader, Button } from '@/components/AdminShell';
 import { JobRunner, type JobSnapshot } from '@/components/JobRunner';
 import { ArrowLeft, Sparkles, KeyRound, Copy, Check, Info, ListChecks, ExternalLink } from 'lucide-react';
+import { copyToClipboard } from '@/lib/clipboard';
 
 type Category = { code: string; label: string };
 
@@ -67,11 +68,13 @@ export default function NewInstancePage() {
         }
     }
 
-    function copyCreds() {
+    async function copyCreds() {
         if (!creds) return;
-        navigator.clipboard.writeText(`Email: ${creds.email}\nPassword: ${creds.password}`);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
+        const ok = await copyToClipboard(`Email: ${creds.email}\nPassword: ${creds.password}`);
+        if (ok) {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        }
     }
 
     if (creds) {
