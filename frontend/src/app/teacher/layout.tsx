@@ -5,6 +5,7 @@ import { LayoutDashboard, BookOpen, UserCog, ClipboardCheck, MessageSquare } fro
 import { useAuth, canAccessArea, homeForRole } from '@/lib/auth';
 import { RoleSidebar, RoleNavItem } from '@/components/RoleSidebar';
 import { MessengerWidget } from '@/components/MessengerWidget';
+import { RememberMeBanner } from '@/components/RememberMeBanner';
 
 const nav: RoleNavItem[] = [
   { href: '/teacher',          label: 'Overview',   icon: LayoutDashboard },
@@ -40,7 +41,10 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-ink-50 dark:bg-ink-950 text-ink-900 dark:text-ink-100">
       <RoleSidebar items={nav} subtitle="Teacher space" accent="amber" />
-      <div className="flex-1 min-w-0 flex flex-col">{children}</div>
+      <div className="flex-1 min-w-0 flex flex-col">
+        <RememberMeBanner />
+        {children}
+      </div>
       <MessengerWidget />
     </div>
   );

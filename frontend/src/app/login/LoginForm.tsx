@@ -30,6 +30,7 @@ function LoginInner({ name, template, stats }: { name: string; template: string;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const brand = templateBrand(template);
@@ -48,8 +49,8 @@ function LoginInner({ name, template, stats }: { name: string; template: string;
     setError(null);
     setLoading(true);
     try {
-      const res = await api.post('/auth/login', { email, password });
-      signIn(res.accessToken, res.user);
+      const res = await api.post('/auth/login', { email, password, rememberMe: remember });
+      signIn(res.accessToken, res.user, remember);
       router.replace(returnTo ?? homeForRole(res.user?.role));
     } catch (err: any) {
       setError(err?.message ?? 'Login failed');
@@ -98,6 +99,21 @@ function LoginInner({ name, template, stats }: { name: string; template: string;
               />
             </Field>
 
+            <div className="flex items-center justify-between text-sm">
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                  className="size-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
+                />
+                <span className="text-ink-700 dark:text-ink-300">Remember me</span>
+              </label>
+              <Link href="/forgot-password" className="text-brand-700 font-medium hover:underline">
+                Forgot password?
+              </Link>
+            </div>
+
             {error && (
               <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
                 {error}
@@ -120,12 +136,6 @@ function LoginInner({ name, template, stats }: { name: string; template: string;
               )}
             </button>
           </form>
-
-          <p className="mt-8 text-sm text-ink-500">
-            <Link href="/forgot-password" className="text-brand-700 font-medium hover:underline">
-              Forgot password?
-            </Link>
-          </p>
         </div>
       </div>
 

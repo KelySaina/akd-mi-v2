@@ -28,31 +28,86 @@ export function hasRole(u: AuthUser | null | undefined, ...roles: Role[]): boole
 
 const AUTH_EVENT = 'akdmi:auth';
 
-/* ───── Storage helpers (safe for SSR) ───── */
+/* ───── Storage helpers (safe for SSR) ─────
+ * "Remember me" controls WHICH store holds the access token + user object:
+ *   - remembered  → localStorage (survives browser restart)
+ *   - not         → sessionStorage (cleared when the tab/window closes)
+ * Readers fall back from local→session so the rest of the app doesn't have to
+ * know which one is active.
+ */
+
+const TOKEN_KEY = 'access_token';
+const USER_KEY = 'user';
+
+function readBoth(key: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const fromLocal = localStorage.getItem(key);
+    if (fromLocal !== null) return fromLocal;
+  } catch { /* ignore */ }
+  try { return sessionStorage.getItem(key); } catch { return null; }
+}
+
+function clearBoth(key: string) {
+  if (typeof window === 'undefined') return;
+  try { localStorage.removeItem(key); } catch { /* ignore */ }
+  try { sessionStorage.removeItem(key); } catch { /* ignore */ }
+}
 
 export function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('access_token');
+  return readBoth(TOKEN_KEY);
 }
 
 export function getStoredUser(): AuthUser | null {
-  if (typeof window === 'undefined') return null;
-  const raw = localStorage.getItem('user');
+  const raw = readBoth(USER_KEY);
   if (!raw) return null;
   try { return JSON.parse(raw) as AuthUser; } catch { return null; }
 }
 
-export function signIn(token: string, user: AuthUser) {
+/** True iff the current session is persisted across browser restarts. */
+export function isRemembered(): boolean {
+  if (typeof window === 'undefined') return false;
+  try { return localStorage.getItem(TOKEN_KEY) !== null; } catch { return false; }
+}
+
+export function signIn(token: string, user: AuthUser, remember: boolean = true) {
   if (typeof window === 'undefined') return;
-  localStorage.setItem('access_token', token);
-  localStorage.setItem('user', JSON.stringify(user));
+  const store = remember ? localStorage : sessionStorage;
+  // Make sure no stale copy lives in the other store.
+  clearBoth(TOKEN_KEY);
+  clearBoth(USER_KEY);
+  try {
+    store.setItem(TOKEN_KEY, token);
+    store.setItem(USER_KEY, JSON.stringify(user));
+  } catch { /* ignore quota errors */ }
+  window.dispatchEvent(new Event(AUTH_EVENT));
+}
+
+/** Promote the current (session-only) login to a persistent one. No-op when
+ *  the session is already remembered or when there is no live session. */
+export function rememberCurrentSession(): void {
+  if (typeof window === 'undefined') return;
+  if (isRemembered()) return;
+  let token: string | null = null;
+  let user: string | null = null;
+  try {
+    token = sessionStorage.getItem(TOKEN_KEY);
+    user = sessionStorage.getItem(USER_KEY);
+  } catch { /* ignore */ }
+  if (!token) return;
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+    if (user) localStorage.setItem(USER_KEY, user);
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(USER_KEY);
+  } catch { /* ignore */ }
   window.dispatchEvent(new Event(AUTH_EVENT));
 }
 
 export function signOut() {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem('access_token');
-  localStorage.removeItem('user');
+  clearBoth(TOKEN_KEY);
+  clearBoth(USER_KEY);
   window.dispatchEvent(new Event(AUTH_EVENT));
   // Hard reload so any in-memory state is dropped
   window.location.href = '/login';
@@ -118,7 +173,10 @@ export function useAuth() {
         const fresh = await api.get<AuthUser>('/auth/me');
         if (cancelled) return;
         setUser(fresh);
-        localStorage.setItem('user', JSON.stringify(fresh));
+        // Persist back to whichever store currently holds the session, so we
+        // don't accidentally promote a session-only login to a remembered one.
+        const store = isRemembered() ? localStorage : sessionStorage;
+        try { store.setItem(USER_KEY, JSON.stringify(fresh)); } catch { /* ignore */ }
       } catch {
         // On 401, api.ts already cleared storage and navigated to /login.
         // On any other error (429, network blip, server hiccup) we KEEP the

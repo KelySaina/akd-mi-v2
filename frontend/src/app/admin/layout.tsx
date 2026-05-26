@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/Sidebar';
 import { MessengerWidget } from '@/components/MessengerWidget';
+import { RememberMeBanner } from '@/components/RememberMeBanner';
 import { useAuth } from '@/lib/auth';
 import { canAccessArea, homeForRole } from '@/lib/auth';
 
@@ -35,7 +36,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-ink-50 dark:bg-ink-950 text-ink-900 dark:text-ink-100">
       <Sidebar />
-      <div className="flex-1 min-w-0 flex flex-col">{children}</div>
+      <div className="flex-1 min-w-0 flex flex-col">
+        <RememberMeBanner />
+        {children}
+      </div>
       <MessengerWidget />
     </div>
   );

@@ -18,6 +18,7 @@ const env = loadEnv();
 const LoginBody = z.object({
     email: z.string().email(),
     password: z.string().min(1),
+    rememberMe: z.boolean().optional(),
 });
 
 const UpdateMeBody = z.object({
@@ -74,7 +75,10 @@ export async function authRoutes(app: FastifyInstance) {
                 secure: env.NODE_ENV === 'production',
                 sameSite: 'lax',
                 path: '/api/v1/auth',
-                maxAge: 7 * 24 * 60 * 60,
+                // "Remember me" extends the persistent refresh-cookie lifetime to
+                // 30 days. Otherwise we omit maxAge entirely so the browser treats
+                // it as a session cookie and clears it on close.
+                ...(body.rememberMe ? { maxAge: 30 * 24 * 60 * 60 } : {}),
             });
 
             return {

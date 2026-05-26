@@ -1,6 +1,25 @@
 // Lightweight API client. Pulls token from localStorage and auto-redirects to /login on 401.
 const ENV_BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
 
+// The access token lives in either localStorage (remember-me) or sessionStorage
+// (session-only). Check both so callers don't have to care which is active.
+function readStoredToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    try {
+        const t = localStorage.getItem('access_token');
+        if (t) return t;
+    } catch { /* ignore */ }
+    try { return sessionStorage.getItem('access_token'); } catch { return null; }
+}
+
+function clearStoredAuth() {
+    if (typeof window === 'undefined') return;
+    for (const key of ['access_token', 'user']) {
+        try { localStorage.removeItem(key); } catch { /* ignore */ }
+        try { sessionStorage.removeItem(key); } catch { /* ignore */ }
+    }
+}
+
 // Resolve API base at call time. In the browser, if the configured URL points at
 // `localhost` but the page is being served from a different host (e.g. the WSL IP
 // or a LAN address), swap the hostname so fetch targets the same host the user
@@ -27,10 +46,7 @@ function isSafeReturnTo(path: string) {
 
 function redirectToLogin() {
     if (typeof window === 'undefined') return;
-    try {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user');
-    } catch { /* ignore */ }
+    clearStoredAuth();
     // Avoid loop when already on /login
     if (window.location.pathname.startsWith('/login')) return;
     const returnTo = window.location.pathname + window.location.search;
@@ -43,7 +59,7 @@ async function request<T = any>(method: string, path: string, body?: unknown): P
     const headers: Record<string, string> = {};
     if (hasBody) headers['Content-Type'] = 'application/json';
     if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('access_token');
+        const token = readStoredToken();
         if (token) headers['Authorization'] = `Bearer ${token}`;
     }
     const res = await fetch(`${resolveBase()}/api/v1${path}`, {
@@ -83,7 +99,7 @@ export const api = {
 export async function uploadFile(file: File): Promise<{ key: string; url: string; size: number; mimeType: string }> {
     const headers: Record<string, string> = {};
     if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('access_token');
+        const token = readStoredToken();
         if (token) headers['Authorization'] = `Bearer ${token}`;
     }
     const fd = new FormData();
