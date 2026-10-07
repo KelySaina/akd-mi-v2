@@ -30,6 +30,8 @@ ${BOLD}Commands:${NC}
   ${GREEN}down${NC} <slug>           Stop the instance stack
   ${GREEN}restart${NC} <slug>        Restart the instance stack
   ${GREEN}destroy${NC} <slug>        Stop + remove containers, volumes, and instance dir
+  ${GREEN}caddy${NC} <slug>           Render this instance's host-Caddy site blocks
+                        (--install / --remove, both need sudo)
   ${GREEN}list${NC}                  Show all instances with status, ports, URLs
   ${GREEN}logs${NC} <slug> [svc]     Tail container logs
   ${GREEN}shell${NC} <slug> [svc]    Open a shell inside a service container (default: api)
@@ -108,6 +110,7 @@ case "$CMD" in
     restart)  bash "$SCRIPT_DIR/down.sh" "$INSTANCE" || true
               exec bash "$SCRIPT_DIR/up.sh" "$INSTANCE" ;;
     destroy)  exec bash "$SCRIPT_DIR/destroy.sh" "$INSTANCE" "${ARGS[@]:-}" ;;
+    caddy)    exec bash "$SCRIPT_DIR/caddy-site.sh" "$INSTANCE" "${ARGS[@]:-}" ;;
     logs)     exec bash "$SCRIPT_DIR/logs.sh" "$INSTANCE" "${ARGS[@]:-}" ;;
     shell)    exec bash "$SCRIPT_DIR/shell.sh" "$INSTANCE" "${ARGS[@]:-api}" ;;
     exec)     exec bash "$SCRIPT_DIR/exec.sh" "$INSTANCE" "${ARGS[@]:-}" ;;

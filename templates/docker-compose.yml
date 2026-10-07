@@ -1,6 +1,15 @@
 # AKD-MI base stack — one instance per institution.
 # Project name is set by the CLI via `-p akdmi-<slug>`.
-# All ports are bound via env vars set in instances/<slug>/.env.
+# All ports are bound via env vars set in instances/<slug>/.env, on ${BIND_HOST}
+# (127.0.0.1 by default).
+#
+#   User ──► Caddy (on the host) ──► web  (Next.js)
+#                                └──► api  (Express)
+#                                └──► minio (public media prefix only)
+#
+# This stack ships no reverse proxy. Routing and TLS belong to a Caddy on the host,
+# shared with every other app there, and scripts/caddy-site.sh writes one site file
+# per instance. See templates/caddy.caddyfile.
 
 services:
 
@@ -15,7 +24,14 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
     ports:
-      - "${DB_PORT}:5432"
+      # Loopback, not 0.0.0.0. Every one of these used to publish on all interfaces,
+      # which on a public host put this instance's database, cache and object store
+      # straight on the internet — once per institution. The reverse proxy is a Caddy
+      # on the host, outside docker, so it still needs a port to reach web/api, and
+      # ${BIND_HOST} keeps that port off every other interface. db/redis/minio need no
+      # proxy at all; they stay published only so `akd-mi shell`, psql and backups can
+      # reach them from the host.
+      - "${BIND_HOST:-127.0.0.1}:${DB_PORT}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
@@ -30,7 +46,7 @@ services:
     volumes:
       - redis-data:/data
     ports:
-      - "${REDIS_PORT}:6379"
+      - "${BIND_HOST:-127.0.0.1}:${REDIS_PORT}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 5s
@@ -63,8 +79,8 @@ services:
     volumes:
       - minio-data:/data
     ports:
-      - "${MINIO_PORT}:9000"
-      - "${MINIO_UI_PORT}:9001"
+      - "${BIND_HOST:-127.0.0.1}:${MINIO_PORT}:9000"
+      - "${BIND_HOST:-127.0.0.1}:${MINIO_UI_PORT}:9001"
     healthcheck:
       # `mc ready local`, not curl: the Chainguard image ships no curl (nor wget, nor
       # nc), so the old probe could never succeed. It would not have failed loudly
@@ -132,7 +148,7 @@ services:
       INSTANCE_NAME: ${INSTANCE_NAME}
       PUBLIC_WEB_URL: ${PUBLIC_WEB_URL}
     ports:
-      - "${API_PORT}:4000"
+      - "${BIND_HOST:-127.0.0.1}:${API_PORT}:4000"
     networks: [stack]
 
   web:
@@ -153,7 +169,7 @@ services:
       NEXT_PUBLIC_INSTANCE_CATEGORY: ${INSTANCE_CATEGORY}
       INTERNAL_API_URL: http://api:4000
     ports:
-      - "${WEB_PORT}:3000"
+      - "${BIND_HOST:-127.0.0.1}:${WEB_PORT}:3000"
     networks: [stack]
 
 networks:

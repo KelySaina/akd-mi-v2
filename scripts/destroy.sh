@@ -39,6 +39,20 @@ fi
 step "Stopping and removing containers + volumes"
 compose_cmd "$SLUG" down -v --remove-orphans || true
 
+# The instance's site file lives outside the instance directory, so deleting the
+# directory alone would leave Caddy routing a hostname at a port nothing listens
+# on — a 502 that outlives the instance, and a certificate it keeps renewing.
+SITE_FILE="/etc/caddy/sites/akdmi-${SLUG}.caddyfile"
+if [[ -f "$SITE_FILE" ]]; then
+    step "Removing the Caddy site"
+    if [[ "$(id -u)" -eq 0 ]]; then
+        bash "$SCRIPT_DIR/caddy-site.sh" "$SLUG" --remove || warn "Could not remove $SITE_FILE."
+    else
+        warn "Not running as root, so $SITE_FILE was left in place."
+        warn "  Remove it with:  sudo akd-mi caddy $SLUG --remove"
+    fi
+fi
+
 step "Deleting instance directory"
 rm -rf "$INSTANCES_DIR/$SLUG"
 

@@ -36,11 +36,42 @@ MINIO_ROOT_PASSWORD=$(gen_random_password 24)
 ADMIN_EMAIL="admin@${SLUG}.local"
 ADMIN_PASSWORD=$(gen_random_password 16)
 
-# Host used in generated PUBLIC_*_URL values. Defaults to localhost for dev;
-# set AKDMI_PUBLIC_HOST=<server-ip-or-domain> in the portal/runner environment
-# to make new instances reachable from outside the host.
-PUBLIC_HOST="${AKDMI_PUBLIC_HOST:-localhost}"
-PUBLIC_SCHEME="${AKDMI_PUBLIC_SCHEME:-http}"
+# How this instance is reached from outside.
+#
+# Set AKDMI_BASE_DOMAIN in the portal/runner environment and the instance gets
+# real hostnames behind the host's Caddy, with TLS:
+#
+#   AKDMI_BASE_DOMAIN=75-119-136-160.nip.io
+#     -> https://<slug>.75-119-136-160.nip.io        web
+#        https://api.<slug>.75-119-136-160.nip.io    api
+#        https://media.<slug>.75-119-136-160.nip.io  public uploads
+#
+# Leave it unset and nothing changes for local work: localhost:<port> URLs, no
+# proxy, no certificates. Either way every container port binds to BIND_HOST
+# (127.0.0.1), so the only thing an unset base domain costs is public reachability
+# — never an accidentally exposed database.
+BASE_DOMAIN="${AKDMI_BASE_DOMAIN:-}"
+BIND_HOST_VALUE="${AKDMI_BIND_HOST:-127.0.0.1}"
+
+if [[ -n "$BASE_DOMAIN" ]]; then
+    PUBLIC_SCHEME="${AKDMI_PUBLIC_SCHEME:-https}"
+    WEB_HOST="${SLUG}.${BASE_DOMAIN}"
+    API_HOST="api.${SLUG}.${BASE_DOMAIN}"
+    MEDIA_HOST="media.${SLUG}.${BASE_DOMAIN}"
+    PUBLIC_WEB_URL="$PUBLIC_SCHEME://$WEB_HOST"
+    PUBLIC_API_URL="$PUBLIC_SCHEME://$API_HOST"
+    S3_PUBLIC_ENDPOINT_VALUE="$PUBLIC_SCHEME://$MEDIA_HOST"
+else
+    # Legacy/dev: AKDMI_PUBLIC_HOST kept working as it did, host:port and no proxy.
+    PUBLIC_HOST="${AKDMI_PUBLIC_HOST:-localhost}"
+    PUBLIC_SCHEME="${AKDMI_PUBLIC_SCHEME:-http}"
+    WEB_HOST=""
+    API_HOST=""
+    MEDIA_HOST=""
+    PUBLIC_WEB_URL="$PUBLIC_SCHEME://$PUBLIC_HOST:$WEB_PORT"
+    PUBLIC_API_URL="$PUBLIC_SCHEME://$PUBLIC_HOST:$API_PORT"
+    S3_PUBLIC_ENDPOINT_VALUE="$PUBLIC_SCHEME://$PUBLIC_HOST:$MINIO_PORT"
+fi
 
 # Visual / branding category. Drives the theme (color palette, icon, hero copy)
 # in the instance frontend. One of: SCHOOL, COLLEGE, HIGH_SCHOOL, UNIVERSITY,
@@ -58,10 +89,20 @@ INSTANCE_CATEGORY=$INSTANCE_CATEGORY_VALUE
 PORT_OFFSET=$OFFSET
 
 # ── Public URLs ──
-PUBLIC_WEB_URL=$PUBLIC_SCHEME://$PUBLIC_HOST:$WEB_PORT
-PUBLIC_API_URL=$PUBLIC_SCHEME://$PUBLIC_HOST:$API_PORT
+PUBLIC_WEB_URL=$PUBLIC_WEB_URL
+PUBLIC_API_URL=$PUBLIC_API_URL
+
+# ── Public hostnames (empty = no proxy, localhost:PORT only) ──
+# Consumed by scripts/caddy-site.sh to write this instance's site file.
+WEB_HOST=$WEB_HOST
+API_HOST=$API_HOST
+MEDIA_HOST=$MEDIA_HOST
 
 # ── Ports ──
+# Interface the published ports bind to. 127.0.0.1 means the only way in is the
+# proxy; anything else publishes this instance's database, cache and object store
+# on that interface too.
+BIND_HOST=$BIND_HOST_VALUE
 WEB_PORT=$WEB_PORT
 API_PORT=$API_PORT
 DB_PORT=$DB_PORT
@@ -90,7 +131,7 @@ SESSION_SECRET=$SESSION_SECRET
 MINIO_ROOT_USER=$MINIO_ROOT_USER
 MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD
 S3_ENDPOINT=http://minio:9000
-S3_PUBLIC_ENDPOINT=$PUBLIC_SCHEME://$PUBLIC_HOST:$MINIO_PORT
+S3_PUBLIC_ENDPOINT=$S3_PUBLIC_ENDPOINT_VALUE
 S3_REGION=us-east-1
 S3_BUCKET=akdmi-$SLUG
 
@@ -126,4 +167,14 @@ echo
 info "Next steps:"
 echo "  1. Review:  $INSTANCE_DIR/.env"
 echo "  2. Start:   akd-mi up $SLUG"
-echo "  3. Open:    $PUBLIC_SCHEME://$PUBLIC_HOST:$WEB_PORT"
+if [[ -n "$BASE_DOMAIN" ]]; then
+    echo "  3. Route:   sudo akd-mi caddy $SLUG --install"
+    echo "  4. Open:    $PUBLIC_WEB_URL"
+    echo
+    info "Nothing answers at $WEB_HOST until step 3: the ports are on $BIND_HOST_VALUE."
+else
+    echo "  3. Open:    $PUBLIC_WEB_URL"
+    echo
+    info "Local-only: no base domain set, so no proxy and no certificates."
+    echo "  Set AKDMI_BASE_DOMAIN=<domain> before 'init' to give an instance public hostnames."
+fi

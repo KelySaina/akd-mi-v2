@@ -1,0 +1,73 @@
+# ============================================================================
+# AKD-MI — site blocks for ONE instance, served by a Caddy running on the host.
+#
+# Rendered per instance by scripts/caddy-site.sh from instances/<slug>/.env and
+# installed as /etc/caddy/sites/akdmi-<slug>.caddyfile, so adding or destroying
+# an institution adds or removes exactly one file.
+#
+# The stack itself ships no proxy: every service is published on 127.0.0.1 and
+# reached from here by port. db, redis and the MinIO console are deliberately
+# absent — they are on loopback for psql, backups and `akd-mi shell`, and have
+# no business being routed to the internet.
+# ============================================================================
+
+# The security headers below are repeated in each site block rather than factored
+# into a (snippet). They have to be: this file is rendered once PER INSTANCE into
+# /etc/caddy/sites/, and every one of those files is inlined by the same `import`.
+# A snippet declared here would be declared once per institution, and Caddy rejects
+# the whole config on the second one — "redeclaration of previously declared
+# snippet" — taking every other instance down with it. Duplication is the price of
+# each instance file being self-contained, which is also what makes adding and
+# destroying one a single file operation.
+
+# --- the app (Next.js) -----------------------------------------------------
+{$WEB_HOST} {
+	encode zstd gzip
+	header {
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-X-Powered-By
+		-Server
+		-Via
+	}
+	reverse_proxy 127.0.0.1:{$WEB_PORT}
+}
+
+# --- the API (Express) -----------------------------------------------------
+{$API_HOST} {
+	encode zstd gzip
+	header {
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-X-Powered-By
+		-Server
+		-Via
+	}
+
+	# Uploads go through the API, and the backend caps them itself. Refusing here
+	# too stops an oversized body crossing the loopback only to be rejected.
+	request_body {
+		max_size 32MB
+	}
+
+	reverse_proxy 127.0.0.1:{$API_PORT}
+}
+
+# --- public media ----------------------------------------------------------
+# Only the `public/` prefix is anonymously readable (minio-init sets exactly that
+# with `mc anonymous set download local/<bucket>/public`). Everything else in the
+# bucket answers 403 from MinIO itself, so this block does not have to enforce it
+# — but it does not widen it either: this is the same door, with TLS in front.
+{$MEDIA_HOST} {
+	encode zstd gzip
+	header {
+		X-Content-Type-Options "nosniff"
+		-Server
+		-Via
+	}
+	reverse_proxy 127.0.0.1:{$MINIO_PORT}
+}
