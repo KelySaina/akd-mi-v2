@@ -39,7 +39,22 @@ services:
     networks: [stack]
 
   minio:
-    image: minio/minio:latest
+    # MinIO deleted minio/minio and minio/mc from Docker Hub in September 2026 and
+    # stopped serving them anonymously from quay.io days later, so `:latest` stopped
+    # resolving at all — every new instance died at `docker compose up`. This is
+    # Chainguard's free source-built image of the same AGPL server.
+    #
+    # Pinned by digest, where the old reference floated on :latest. That was already
+    # the wrong shape for a service holding an instance's uploads — a recreate could
+    # jump versions and migrate the volume format unasked — and the free tier
+    # publishes no version tags anyway. Re-pin deliberately with:
+    #   docker pull cgr.dev/chainguard/minio:latest
+    #   docker image inspect cgr.dev/chainguard/minio:latest --format '{{index .RepoDigests 0}}'
+    #
+    # NOTE: runs as uid 65532 where MinIO's own ran as root, so an instance that
+    # already has objects needs its volume chowned once, with the stack down:
+    #   docker run --rm -v akdmi-<slug>_minio-data:/d alpine chown -R 65532:65532 /d
+    image: cgr.dev/chainguard/minio@sha256:a05a4497e8dce3cb7a7a1bf1872ba5d30ea988f1e8c22c9e0920503761c4b5f1
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -51,14 +66,21 @@ services:
       - "${MINIO_PORT}:9000"
       - "${MINIO_UI_PORT}:9001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      # `mc ready local`, not curl: the Chainguard image ships no curl (nor wget, nor
+      # nc), so the old probe could never succeed. It would not have failed loudly
+      # either — minio simply never turns healthy, and minio-init and api both wait
+      # on service_healthy, so the whole instance hangs instead of erroring.
+      test: ["CMD", "mc", "ready", "local"]
       interval: 10s
       timeout: 3s
       retries: 5
     networks: [stack]
 
   minio-init:
-    image: minio/mc:latest
+    # Same image as the server above: it carries both `mc` and a shell, so the
+    # inline entrypoint below runs unchanged. Chainguard's separate minio-client
+    # image is distroless and would leave `/bin/sh -c` nothing to run.
+    image: cgr.dev/chainguard/minio@sha256:a05a4497e8dce3cb7a7a1bf1872ba5d30ea988f1e8c22c9e0920503761c4b5f1
     depends_on:
       minio:
         condition: service_healthy
