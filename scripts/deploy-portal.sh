@@ -20,12 +20,18 @@ set -euo pipefail
 
 : "${IMAGE_TAG:?IMAGE_TAG is required}"
 
-# Must match AKDMI_PROJECT_DIR in portal/.env: the portal bind-mounts the project
-# at the SAME path inside its container as on the host, so `docker compose
-# --project-directory` resolves identically whether the CLI runs in the container
-# or the daemon acts on it. Deploying somewhere else silently breaks instance
-# provisioning rather than this script.
-DEPLOY_DIR="${AKDMI_PROJECT_DIR:-/opt/akd-mi-v2}"
+# ~/akd-mi-v2, like ~/timeline and ~/izyah on this host. Nothing needs it under
+# /opt: the deploy user owns it, which is what lets CI check it out over SSH
+# without sudo.
+#
+# The path matters for one reason: the portal bind-mounts the project at the SAME
+# path inside its container as on the host, so `docker compose --project-directory`
+# resolves identically whether the CLI runs in the container or the daemon acts on
+# it. Any path works as long as everything agrees on it — a disagreement breaks
+# instance provisioning, not this script, which is far harder to trace back here.
+# So this exports the value it chose rather than letting compose guess.
+DEPLOY_DIR="${AKDMI_PROJECT_DIR:-$HOME/akd-mi-v2}"
+export AKDMI_PROJECT_DIR="$DEPLOY_DIR"
 LAST_GOOD_FILE=".deployed_tag"
 HEALTH_RETRIES=24   # 24 * 5s = up to 2 minutes for build + migrate + boot
 HEALTH_DELAY=5
@@ -35,8 +41,7 @@ die() { printf '\n\033[31m==> %s\033[0m\n' "$*" >&2; exit 1; }
 
 [ -d "$DEPLOY_DIR/.git" ] ||
   die "$DEPLOY_DIR is not a git checkout. Bootstrap it once:
-       sudo install -d -o \$USER -g \$USER $DEPLOY_DIR
-       git clone <repo> $DEPLOY_DIR
+       git clone https://github.com/KelySaina/akd-mi-v2.git $DEPLOY_DIR
        cp $DEPLOY_DIR/portal/.env.example $DEPLOY_DIR/portal/.env  # then fill it in"
 
 cd "$DEPLOY_DIR"
@@ -70,6 +75,17 @@ preflight() {
     grep -rqF "$PORTAL_HOST" /etc/caddy 2>/dev/null ||
       die "no Caddy site answers for ${PORTAL_HOST}.
        Run: sudo ./scripts/caddy-site.sh --portal --install"
+  fi
+
+  # portal/.env wins inside the container, so a stale value here and a different
+  # checkout on disk means the portal bind-mounts a path that is not this one, and
+  # every instance it provisions resolves its compose project somewhere else.
+  cfg_dir="$(read_env AKDMI_PROJECT_DIR)"
+  if [ -n "$cfg_dir" ] && [ "$cfg_dir" != "$DEPLOY_DIR" ]; then
+    die "AKDMI_PROJECT_DIR in portal/.env is '$cfg_dir' but this checkout is at
+       '$DEPLOY_DIR'. The portal mounts the project at that path inside its own
+       container, so a mismatch does not fail here — it breaks provisioning later,
+       in a way that points at compose rather than at this line. Make them agree."
   fi
 
   case "$(read_env BIND_HOST)" in

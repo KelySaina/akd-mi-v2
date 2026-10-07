@@ -91,10 +91,11 @@ jobs:
 
   # Deploy over SSH, like the other stacks on this host. The previous version of
   # this job ran on a self-hosted runner that WAS the server and rsync'd the
-  # working directory into /opt/akd-mi-v2 — so a build failure and a server
-  # outage were the same event, the runner needed write access to the deploy
-  # directory, and nothing recorded which commit was live. The server now only
-  # runs scripts/deploy-portal.sh, which syncs itself to the SHA with git.
+  # working directory into a root-owned /opt checkout — so a build failure and a
+  # server outage were the same event, the runner needed write access (and sudo
+  # chown) there, and nothing recorded which commit was live. The checkout now
+  # lives in the deploy user's home like the other stacks on this host, and the
+  # server only runs scripts/deploy-portal.sh, which syncs itself to the SHA.
   deploy-portal:
     needs: [changes, backend, frontend]
     # always(): backend/frontend are skipped when their paths did not change, and
@@ -121,10 +122,9 @@ jobs:
           command_timeout: 15m
           script: |
             set -e
-            DEPLOY_DIR="${AKDMI_PROJECT_DIR:-/opt/akd-mi-v2}"
+            DEPLOY_DIR="${AKDMI_PROJECT_DIR:-$HOME/akd-mi-v2}"
             if [ ! -d "$DEPLOY_DIR/.git" ]; then
               echo "::error::$DEPLOY_DIR is not a git checkout on this host — bootstrap it once, then re-run:"
-              echo "  sudo install -d -o \$USER -g \$USER $DEPLOY_DIR"
               echo "  git clone https://github.com/${{ github.repository }}.git $DEPLOY_DIR"
               echo "  cp $DEPLOY_DIR/portal/.env.example $DEPLOY_DIR/portal/.env   # then fill it in"
               exit 1
