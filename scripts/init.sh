@@ -41,10 +41,18 @@ ADMIN_PASSWORD=$(gen_random_password 16)
 # Set AKDMI_BASE_DOMAIN in the portal/runner environment and the instance gets
 # real hostnames behind the host's Caddy, with TLS:
 #
-#   AKDMI_BASE_DOMAIN=75-119-136-160.nip.io
-#     -> https://<slug>.75-119-136-160.nip.io        web
-#        https://api.<slug>.75-119-136-160.nip.io    api
-#        https://media.<slug>.75-119-136-160.nip.io  public uploads
+#   AKDMI_BASE_DOMAIN=akd-mi.75-119-136-160.nip.io
+#     -> https://<slug>.akd-mi.75-119-136-160.nip.io        web
+#        https://api.<slug>.akd-mi.75-119-136-160.nip.io    api
+#        https://media.<slug>.akd-mi.75-119-136-160.nip.io  public uploads
+#
+# Give it a label of its own (the `akd-mi.` above) rather than pointing it
+# straight at the host's domain. Every slug becomes a hostname under it, and
+# this box already serves other apps at the top level — timeline., izyah.,
+# n8n., ollama. An instance slugged `n8n` would otherwise claim a name that is
+# already taken, and Caddy would refuse the whole config with "ambiguous site
+# definition", taking every other site down with it. Under a label, a slug can
+# collide with nothing but another slug.
 #
 # Leave it unset and nothing changes for local work: localhost:<port> URLs, no
 # proxy, no certificates. Either way every container port binds to BIND_HOST

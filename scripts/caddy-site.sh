@@ -78,7 +78,7 @@ if [[ "$MODE" == "portal" ]]; then
     if [[ -z "$PORTAL_HOST" ]]; then
         err "PORTAL_HOST is not set in portal/.env."
         echo "  Add the hostname Caddy should answer for, e.g."
-        echo "    PORTAL_HOST=portal.75-119-136-160.nip.io"
+        echo "    PORTAL_HOST=portal.akd-mi.75-119-136-160.nip.io"
         exit 1
     fi
     render() {
