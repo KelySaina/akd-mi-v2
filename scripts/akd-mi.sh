@@ -32,6 +32,7 @@ ${BOLD}Commands:${NC}
   ${GREEN}destroy${NC} <slug>        Stop + remove containers, volumes, and instance dir
   ${GREEN}caddy${NC} <slug>           Render this instance's host-Caddy site blocks
                         (--install / --remove, both need sudo)
+  ${GREEN}caddy-portal${NC}          Same, for the portal itself (reads portal/.env)
   ${GREEN}list${NC}                  Show all instances with status, ports, URLs
   ${GREEN}logs${NC} <slug> [svc]     Tail container logs
   ${GREEN}shell${NC} <slug> [svc]    Open a shell inside a service container (default: api)
@@ -91,6 +92,7 @@ parse_args "$@"
 case "$CMD" in
     help|-h|--help|"") usage; exit 0 ;;
     list)              exec bash "$SCRIPT_DIR/list.sh" ;;
+    caddy-portal)      exec bash "$SCRIPT_DIR/caddy-site.sh" --portal "${@:2}" ;;
 esac
 
 # All other commands require an instance name

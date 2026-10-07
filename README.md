@@ -152,7 +152,8 @@ akd-mi-v2/
     (portal has no migration files; schema is the source of truth).
   - Improved migration logic in `migrate.sh` / `up.sh` (handles missing
     `prisma/migrations` folder, pins Prisma CLI version, `--accept-data-loss` guard).
-  - GitHub Actions CI: Node setup, backend + frontend builds, portal deployment
+  - GitHub Actions CI/CD: backend + frontend on GitHub-hosted runners, portal
+    deployed over SSH (`scripts/deploy-portal.sh`). No self-hosted runner.
     workflow.
   - `.gitattributes` enforcing LF line endings for shell scripts.
   - rsync exclude hardening for `instances/` during deploy/backup.
@@ -171,8 +172,9 @@ history:
   (`feat: implement import functionality for existing instances`).
 - Robust `up`/`migrate` paths that no-op gracefully when there are no Prisma
   migration files and fall back to `db push`.
-- `rsync` exclusions for `instances/` to prevent permission errors and accidental
-  data deletion during sync/deploy.
+- Deploy syncs the server's checkout with `git`, not `rsync` from a runner, so
+  `instances/` is never in the path of a `--delete` and the deployed commit is
+  recorded in `.deployed_tag`.
 - `akd-mi.sh` exports project directories so child processes (portal, jobs) inherit
   the right paths.
 

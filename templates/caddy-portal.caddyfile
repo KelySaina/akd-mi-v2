@@ -1,0 +1,31 @@
+# ============================================================================
+# AKD-MI portal — site block for the host Caddy.
+#
+# The portal is the management UI: it provisions, starts and destroys every
+# institution's stack, and it holds a mount of the host's docker socket to do
+# it. That makes it the single most valuable thing on this box, so it is behind
+# TLS and the ports it listens on are bound to 127.0.0.1.
+#
+# Installed by `sudo akd-mi caddy-portal --install`, which renders this from
+# portal/.env into /etc/caddy/sites/akdmi-portal.caddyfile.
+# ============================================================================
+
+{$PORTAL_HOST} {
+	encode zstd gzip
+
+	header {
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-X-Powered-By
+		-Server
+		-Via
+	}
+
+	# No basic_auth in front: the portal has its own login (PORTAL_ADMIN_TOKEN /
+	# JWT_SECRET in portal/.env), and stacking a second credential on top of it
+	# tends to end with one of the two being left at its default. If you want
+	# defence in depth here, add it deliberately rather than assuming it exists.
+	reverse_proxy 127.0.0.1:{$PORTAL_PORT}
+}

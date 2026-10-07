@@ -19,8 +19,16 @@ INSTANCES_DIR="${INSTANCES_DIR:-$PROJECT_DIR/instances}"
 TEMPLATES_DIR="${TEMPLATES_DIR:-$PROJECT_DIR/templates}"
 source "$SCRIPT_DIR/lib/common.sh"
 
-SLUG="${1:?usage: caddy-site.sh <slug> [--install|--remove]}"
+# Two shapes: one instance by slug, or the portal with --portal in place of it.
+TARGET="${1:?usage: caddy-site.sh <slug>|--portal [--install|--remove]}"
 shift || true
+MODE="instance"
+SLUG=""
+if [[ "$TARGET" == "--portal" ]]; then
+    MODE="portal"
+else
+    SLUG="$TARGET"
+fi
 ACTION="print"
 for arg in "$@"; do
     # akd-mi.sh dispatches with "${ARGS[@]:-}", which expands to one EMPTY string
@@ -34,23 +42,52 @@ for arg in "$@"; do
     esac
 done
 
-validate_slug "$SLUG"
 SITE_DIR="/etc/caddy/sites"
-SITE_FILE="$SITE_DIR/akdmi-${SLUG}.caddyfile"
 MAIN_CADDYFILE="/etc/caddy/Caddyfile"
 IMPORT_LINE="import $SITE_DIR/*.caddyfile"
+if [[ "$MODE" == "portal" ]]; then
+    SITE_FILE="$SITE_DIR/akdmi-portal.caddyfile"
+    LABEL="the portal"
+else
+    validate_slug "$SLUG"
+    SITE_FILE="$SITE_DIR/akdmi-${SLUG}.caddyfile"
+    LABEL="instance '$SLUG'"
+fi
 
 if [[ "$ACTION" == "remove" ]]; then
     [[ "$(id -u)" -eq 0 ]] || { err "--remove writes under /etc/caddy — re-run with sudo."; exit 1; }
     if [[ -f "$SITE_FILE" ]]; then
         rm -f "$SITE_FILE"
-        ok "Removed $SITE_FILE"
+        ok "Removed $SITE_FILE ($LABEL)"
         systemctl reload caddy && ok "caddy reloaded" || warn "caddy did not reload — check 'systemctl status caddy'."
     else
-        info "No site file for '$SLUG' ($SITE_FILE) — nothing to remove."
+        info "No site file for $LABEL ($SITE_FILE) — nothing to remove."
     fi
     exit 0
 fi
+
+if [[ "$MODE" == "portal" ]]; then
+    TEMPLATE="$TEMPLATES_DIR/caddy-portal.caddyfile"
+    [[ -f "$TEMPLATE" ]] || { err "Missing $TEMPLATE"; exit 1; }
+    PORTAL_ENV="$PROJECT_DIR/portal/.env"
+    [[ -f "$PORTAL_ENV" ]] || { err "Missing $PORTAL_ENV — copy portal/.env.example and fill it in."; exit 1; }
+    read_portal() { sed -n "s/^$1=//p" "$PORTAL_ENV" | tail -n1; }
+    PORTAL_HOST="$(read_portal PORTAL_HOST)"
+    PORTAL_PORT="$(read_portal PORTAL_PORT)"; : "${PORTAL_PORT:=3099}"
+    BIND_HOST="$(read_portal BIND_HOST)"
+    if [[ -z "$PORTAL_HOST" ]]; then
+        err "PORTAL_HOST is not set in portal/.env."
+        echo "  Add the hostname Caddy should answer for, e.g."
+        echo "    PORTAL_HOST=portal.75-119-136-160.nip.io"
+        exit 1
+    fi
+    render() {
+        sed -e "s|{\$PORTAL_HOST}|$PORTAL_HOST|g" \
+            -e "s|{\$PORTAL_PORT}|$PORTAL_PORT|g" \
+            "$TEMPLATE"
+    }
+    ROUTES="  https://$PORTAL_HOST  -> 127.0.0.1:$PORTAL_PORT  (portal)"
+else
 
 require_instance_exists "$SLUG"
 load_instance_env "$SLUG"
@@ -85,6 +122,11 @@ render() {
         -e "s|{\$MINIO_PORT}|$MINIO_PORT|g" \
         "$TEMPLATE"
 }
+ROUTES="  https://$WEB_HOST     -> 127.0.0.1:$WEB_PORT    (web)
+  https://$API_HOST     -> 127.0.0.1:$API_PORT    (api)
+  https://$MEDIA_HOST   -> 127.0.0.1:$MINIO_PORT  (public media)"
+
+fi
 
 if [[ "$ACTION" == "print" ]]; then
     # Only the rendered config may touch stdout — this output is meant to be piped
@@ -93,11 +135,15 @@ if [[ "$ACTION" == "print" ]]; then
     # puts it in the config, where Caddy reads it as a site address and fails with
     # "subject does not qualify for certificate".
     render
-    { echo; info "Nothing was written. To install: sudo akd-mi caddy $SLUG --install"; } >&2
+    if [[ "$MODE" == "portal" ]]; then
+        { echo; info "Nothing was written. To install: sudo akd-mi caddy-portal --install"; } >&2
+    else
+        { echo; info "Nothing was written. To install: sudo akd-mi caddy $SLUG --install"; } >&2
+    fi
     exit 0
 fi
 
-step "Installing Caddy site for instance '$SLUG'"
+step "Installing Caddy site for $LABEL"
 [[ "$(id -u)" -eq 0 ]] || { err "--install writes under /etc/caddy — re-run with sudo."; exit 1; }
 command -v caddy >/dev/null 2>&1 || {
     err "caddy is not installed on this host."
@@ -131,7 +177,7 @@ if caddy validate --config "$MAIN_CADDYFILE" --adapter caddyfile >/dev/null 2>&1
 else
     caddy validate --config "$MAIN_CADDYFILE" --adapter caddyfile || true
     rm -f "$SITE_FILE"
-    err "The Caddyfile does not validate. This instance's site file has been removed"
+    err "The Caddyfile does not validate. This site file has been removed"
     echo "  again and Caddy was NOT reloaded, so the other instances are untouched."
     echo "  An 'ambiguous site definition' means one of these hostnames is already"
     echo "  defined elsewhere — most likely another instance claimed the same slug."
@@ -144,7 +190,7 @@ if systemctl reload caddy; then
     ok "caddy reloaded"
 else
     systemctl status caddy --no-pager --lines=15 >&2 || true
-    err "caddy did not reload, so '$SLUG' is NOT live. The previously running config"
+    err "caddy did not reload, so $LABEL is NOT live. The previously running config"
     echo "  is still serving, so the other instances are unaffected — but a"
     echo "  'systemctl restart caddy' would now fail and take them down too."
     exit 1
@@ -152,8 +198,6 @@ fi
 
 echo
 info "Routed:"
-echo "  https://$WEB_HOST     -> 127.0.0.1:$WEB_PORT    (web)"
-echo "  https://$API_HOST     -> 127.0.0.1:$API_PORT    (api)"
-echo "  https://$MEDIA_HOST   -> 127.0.0.1:$MINIO_PORT  (public media)"
+echo "$ROUTES"
 echo
 info "Certificates are issued on first request; watch: journalctl -u caddy -f"
